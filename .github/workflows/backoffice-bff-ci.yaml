@@ -60,14 +60,12 @@ jobs:
           name: OWASP Dependency Check Report
           path: ${{github.workspace}}/reports
       - name: Log in to the Container registry
-        if: ${{ github.ref == 'refs/heads/main' }}
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push Docker images
-        if: ${{ github.ref == 'refs/heads/main' }}
         uses: docker/build-push-action@v6
         with:
           context: ./backoffice-bff
