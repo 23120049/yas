@@ -18,8 +18,34 @@ on:
   workflow_dispatch:
 
 jobs:
+  Test:
+    runs-on: ubuntu-latest
+    env:
+      FROM_ORIGINAL_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.ref == 'refs/heads/main' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
+      - uses: ./.github/workflows/actions
+      - name: Run Maven Test
+        run: mvn clean verify -pl sampledata -am
+      - name: Upload Test Result Artifacts
+        uses: actions/upload-artifact@v4
+        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && (success() || failure()) }}
+        with:
+          name: Sampledata-Test-Results
+          path: "sampledata/**/*-reports/TEST*.xml"
+      - name: Test Results
+        uses: dorny/test-reporter@v1
+        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && (success() || failure()) }}
+        with:
+          name: Sampledata-Service-Unit-Test-Results
+          path: "sampledata/**/*-reports/TEST*.xml"
+          reporter: java-junit
+
   Build:
     runs-on: ubuntu-latest
+    needs: Test
     env:
       FROM_ORIGINAL_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.ref == 'refs/heads/main' }}
     steps:
@@ -41,7 +67,7 @@ jobs:
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -f sampledata
+        run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -pl sampledata -am
       - name: OWASP Dependency Check
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         uses: dependency-check/Dependency-Check_Action@main
