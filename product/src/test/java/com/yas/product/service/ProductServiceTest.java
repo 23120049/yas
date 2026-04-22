@@ -22,6 +22,7 @@ import com.yas.product.model.Product;
 import com.yas.product.model.ProductCategory;
 import com.yas.product.model.ProductImage;
 import com.yas.product.model.ProductOption;
+import com.yas.product.model.ProductRelated;
 import com.yas.product.model.enumeration.DimensionUnit;
 import com.yas.product.repository.BrandRepository;
 import com.yas.product.repository.CategoryRepository;
@@ -47,6 +48,7 @@ import com.yas.product.viewmodel.productoption.ProductOptionValuePutVm;
 import java.util.Map;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.lang.reflect.Method;
 import java.lang.reflect.InvocationTargetException;
 import org.springframework.data.domain.Page;
@@ -923,5 +925,169 @@ class ProductServiceTest {
         verify(productRepository).saveAll(savedProductsCaptor.capture());
         Product saved = savedProductsCaptor.getValue().getFirst();
         assertEquals(0L, saved.getStockQuantity());
+    }
+
+    @Test
+    void updateProductRelations_whenValidRelatedProductIds_thenDeleteRemovedAndSaveNewRelations() throws Exception {
+        // Given
+        long productId = 100L;
+        long oldKeepId = 1L;
+        long oldRemoveId = 2L;
+        long newAddId = 3L;
+
+        Product product = Product.builder().id(productId).build();
+        Product oldKeepProduct = Product.builder().id(oldKeepId).build();
+        Product oldRemoveProduct = Product.builder().id(oldRemoveId).build();
+
+        ProductRelated keepRelation = ProductRelated.builder()
+            .product(product)
+            .relatedProduct(oldKeepProduct)
+            .build();
+        ProductRelated removeRelation = ProductRelated.builder()
+            .product(product)
+            .relatedProduct(oldRemoveProduct)
+            .build();
+        product.setRelatedProducts(List.of(keepRelation, removeRelation));
+
+        ProductPutVm productPutVm = new ProductPutVm(
+            "Product",
+            "product",
+            1.0,
+            true,
+            true,
+            false,
+            true,
+            true,
+            null,
+            List.of(),
+            null,
+            null,
+            null,
+            "SKU",
+            null,
+            1.0,
+            DimensionUnit.CM,
+            1.0,
+            1.0,
+            1.0,
+            null,
+            null,
+            null,
+            null,
+            List.of(),
+            List.of(),
+            List.of(new ProductOptionValuePutVm(1L, "text", 0, List.of("Red"))),
+            List.of(),
+            List.of(oldKeepId, newAddId),
+            1L
+        );
+
+        Product newRelatedProduct = Product.builder().id(newAddId).build();
+        when(productRepository.findAllById(Set.of(newAddId))).thenReturn(List.of(newRelatedProduct));
+
+        Method method = ProductService.class.getDeclaredMethod(
+            "updateProductRelations",
+            ProductPutVm.class,
+            Product.class
+        );
+        method.setAccessible(true);
+
+        // When
+        method.invoke(productService, productPutVm, product);
+
+        // Then
+        ArgumentCaptor<List<ProductRelated>> deletedCaptor = ArgumentCaptor.forClass(List.class);
+        verify(productRelatedRepository).deleteAll(deletedCaptor.capture());
+        List<ProductRelated> deletedRelations = deletedCaptor.getValue();
+        assertEquals(1, deletedRelations.size());
+        assertEquals(oldRemoveId, deletedRelations.getFirst().getRelatedProduct().getId());
+
+        ArgumentCaptor<List<ProductRelated>> savedCaptor = ArgumentCaptor.forClass(List.class);
+        verify(productRelatedRepository).saveAll(savedCaptor.capture());
+        List<ProductRelated> savedRelations = savedCaptor.getValue();
+        assertEquals(1, savedRelations.size());
+        assertEquals(productId, savedRelations.getFirst().getProduct().getId());
+        assertEquals(newAddId, savedRelations.getFirst().getRelatedProduct().getId());
+    }
+
+    @Test
+    void updateProductRelations_whenRelatedProductIdsEmpty_thenDeleteAllExistingRelationsAndSaveNone() throws Exception {
+        // Given
+        long productId = 101L;
+        long oldId1 = 11L;
+        long oldId2 = 12L;
+
+        Product product = Product.builder().id(productId).build();
+        Product oldProduct1 = Product.builder().id(oldId1).build();
+        Product oldProduct2 = Product.builder().id(oldId2).build();
+
+        ProductRelated oldRelation1 = ProductRelated.builder()
+            .product(product)
+            .relatedProduct(oldProduct1)
+            .build();
+        ProductRelated oldRelation2 = ProductRelated.builder()
+            .product(product)
+            .relatedProduct(oldProduct2)
+            .build();
+        product.setRelatedProducts(List.of(oldRelation1, oldRelation2));
+
+        ProductPutVm productPutVm = new ProductPutVm(
+            "Product",
+            "product",
+            1.0,
+            true,
+            true,
+            false,
+            true,
+            true,
+            null,
+            List.of(),
+            null,
+            null,
+            null,
+            "SKU",
+            null,
+            1.0,
+            DimensionUnit.CM,
+            1.0,
+            1.0,
+            1.0,
+            null,
+            null,
+            null,
+            null,
+            List.of(),
+            List.of(),
+            List.of(new ProductOptionValuePutVm(1L, "text", 0, List.of("Red"))),
+            List.of(),
+            List.of(),
+            1L
+        );
+
+        when(productRepository.findAllById(Set.of())).thenReturn(List.of());
+
+        Method method = ProductService.class.getDeclaredMethod(
+            "updateProductRelations",
+            ProductPutVm.class,
+            Product.class
+        );
+        method.setAccessible(true);
+
+        // When
+        method.invoke(productService, productPutVm, product);
+
+        // Then
+        ArgumentCaptor<List<ProductRelated>> deletedCaptor = ArgumentCaptor.forClass(List.class);
+        verify(productRelatedRepository).deleteAll(deletedCaptor.capture());
+        List<ProductRelated> deletedRelations = deletedCaptor.getValue();
+        assertEquals(2, deletedRelations.size());
+        assertEquals(
+            List.of(oldId1, oldId2),
+            deletedRelations.stream().map(it -> it.getRelatedProduct().getId()).toList()
+        );
+
+        ArgumentCaptor<List<ProductRelated>> savedCaptor = ArgumentCaptor.forClass(List.class);
+        verify(productRelatedRepository).saveAll(savedCaptor.capture());
+        assertEquals(0, savedCaptor.getValue().size());
     }
 }
