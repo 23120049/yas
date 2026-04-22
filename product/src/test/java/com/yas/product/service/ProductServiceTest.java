@@ -24,6 +24,7 @@ import com.yas.product.model.Product;
 import com.yas.product.model.ProductCategory;
 import com.yas.product.model.ProductImage;
 import com.yas.product.model.ProductOption;
+import com.yas.product.model.ProductOptionCombination;
 import com.yas.product.model.ProductRelated;
 import com.yas.product.model.attribute.ProductAttribute;
 import com.yas.product.model.attribute.ProductAttributeValue;
@@ -1380,5 +1381,109 @@ class ProductServiceTest {
             () -> method.invoke(productService, productPostVm)
         );
         assertEquals(DuplicatedException.class, thrown.getCause().getClass());
+    }
+
+    @Test
+    void restoreStockQuantity_whenValidProducts_thenIncreaseStockAndSaveAll() {
+        // Given
+        Product product1 = Product.builder()
+            .id(1L)
+            .stockTrackingEnabled(true)
+            .stockQuantity(10L)
+            .build();
+        Product product2 = Product.builder()
+            .id(2L)
+            .stockTrackingEnabled(true)
+            .stockQuantity(20L)
+            .build();
+
+        List<ProductQuantityPutVm> request = List.of(
+            new ProductQuantityPutVm(1L, 5L),
+            new ProductQuantityPutVm(2L, 7L)
+        );
+
+        when(productRepository.findAllByIdIn(List.of(1L, 2L))).thenReturn(List.of(product1, product2));
+        when(productRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ArgumentCaptor<List<Product>> savedCaptor = ArgumentCaptor.forClass(List.class);
+
+        // When
+        productService.restoreStockQuantity(request);
+
+        // Then
+        verify(productRepository).saveAll(savedCaptor.capture());
+        List<Product> savedProducts = savedCaptor.getValue();
+        assertEquals(2, savedProducts.size());
+
+        Product saved1 = savedProducts.stream().filter(p -> p.getId().equals(1L)).findFirst().orElseThrow();
+        Product saved2 = savedProducts.stream().filter(p -> p.getId().equals(2L)).findFirst().orElseThrow();
+        assertEquals(15L, saved1.getStockQuantity());
+        assertEquals(27L, saved2.getStockQuantity());
+    }
+
+    @Test
+    void getProductVariationsByParentId_whenParentExistsAndHasOptionsTrue_thenReturnVariationVmsWithOptions() {
+        // Given
+        long parentId = 100L;
+        long variationId = 101L;
+        long optionId = 9L;
+        long thumbnailId = 1000L;
+        long imageId = 2000L;
+
+        Product parentProduct = Product.builder()
+            .id(parentId)
+            .hasOptions(true)
+            .build();
+
+        Product variation = Product.builder()
+            .id(variationId)
+            .name("iPhone 15 - Red")
+            .slug("iphone-15-red")
+            .sku("SKU-RED")
+            .gtin("GTIN-RED")
+            .price(1099.0)
+            .isPublished(true)
+            .thumbnailMediaId(thumbnailId)
+            .build();
+        ProductImage variationImage = ProductImage.builder().imageId(imageId).product(variation).build();
+        variation.setProductImages(List.of(variationImage));
+        parentProduct.setProducts(List.of(variation));
+
+        ProductOption option = new ProductOption();
+        option.setId(optionId);
+        option.setName("Color");
+
+        ProductOptionCombination combination = ProductOptionCombination.builder()
+            .product(variation)
+            .productOption(option)
+            .value("Red")
+            .displayOrder(0)
+            .build();
+
+        when(productRepository.findById(parentId)).thenReturn(Optional.of(parentProduct));
+        when(productOptionCombinationRepository.findAllByProduct(variation)).thenReturn(List.of(combination));
+        when(mediaService.getMedia(thumbnailId))
+            .thenReturn(new NoFileMediaVm(thumbnailId, "", "", "", "http://thumb-red"));
+        when(mediaService.getMedia(imageId))
+            .thenReturn(new NoFileMediaVm(imageId, "", "", "", "http://img-red"));
+
+        // When
+        var result = productService.getProductVariationsByParentId(parentId);
+
+        // Then
+        assertEquals(1, result.size());
+        var vm = result.getFirst();
+        assertEquals(variationId, vm.id());
+        assertEquals("iPhone 15 - Red", vm.name());
+        assertEquals("iphone-15-red", vm.slug());
+        assertEquals("SKU-RED", vm.sku());
+        assertEquals("GTIN-RED", vm.gtin());
+        assertEquals(1099.0, vm.price());
+        assertEquals(thumbnailId, vm.thumbnail().id());
+        assertEquals("http://thumb-red", vm.thumbnail().url());
+        assertEquals(1, vm.productImages().size());
+        assertEquals(imageId, vm.productImages().getFirst().id());
+        assertEquals("http://img-red", vm.productImages().getFirst().url());
+        assertEquals(Map.of(optionId, "Red"), vm.options());
     }
 }
