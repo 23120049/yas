@@ -1486,4 +1486,116 @@ class ProductServiceTest {
         assertEquals("http://img-red", vm.productImages().getFirst().url());
         assertEquals(Map.of(optionId, "Red"), vm.options());
     }
+
+    @Test
+    void getLatestProducts_whenRepositoryReturnsProducts_thenMapToProductListVmSuccessfully() {
+        // Given
+        int count = 2;
+        Product product = Product.builder()
+            .id(1L)
+            .name("Latest Product")
+            .slug("latest-product")
+            .price(99.0)
+            .isAllowedToOrder(true)
+            .isPublished(true)
+            .isFeatured(false)
+            .isVisibleIndividually(true)
+            .taxClassId(1L)
+            .build();
+
+        when(productRepository.getLatestProducts(PageRequest.of(0, count))).thenReturn(List.of(product));
+
+        // When
+        var result = productService.getLatestProducts(count);
+
+        // Then
+        assertEquals(1, result.size());
+        assertEquals(1L, result.getFirst().id());
+        assertEquals("Latest Product", result.getFirst().name());
+        assertEquals("latest-product", result.getFirst().slug());
+        assertEquals(99.0, result.getFirst().price());
+    }
+
+    @Test
+    void getProductsByBrand_whenBrandFound_thenMapToProductThumbnailVmSuccessfully() {
+        // Given
+        String brandSlug = "apple";
+        long thumbnailId = 1000L;
+
+        Brand brand = new Brand();
+        brand.setId(7L);
+        brand.setSlug(brandSlug);
+        brand.setName("Apple");
+
+        Product product = Product.builder()
+            .id(1L)
+            .name("iPhone 15")
+            .slug("iphone-15")
+            .thumbnailMediaId(thumbnailId)
+            .build();
+
+        when(brandRepository.findBySlug(brandSlug)).thenReturn(Optional.of(brand));
+        when(productRepository.findAllByBrandAndIsPublishedTrueOrderByIdAsc(brand)).thenReturn(List.of(product));
+        when(mediaService.getMedia(thumbnailId))
+            .thenReturn(new NoFileMediaVm(thumbnailId, "", "", "", "http://thumb-iphone"));
+
+        // When
+        var result = productService.getProductsByBrand(brandSlug);
+
+        // Then
+        assertEquals(1, result.size());
+        assertEquals(1L, result.getFirst().id());
+        assertEquals("iPhone 15", result.getFirst().name());
+        assertEquals("iphone-15", result.getFirst().slug());
+        assertEquals("http://thumb-iphone", result.getFirst().thumbnailUrl());
+    }
+
+    @Test
+    void getProductsFromCategory_whenCategoryFound_thenMapToProductListGetFromCategoryVmSuccessfully() {
+        // Given
+        int pageNo = 0;
+        int pageSize = 10;
+        String categorySlug = "phones";
+        long thumbnailId = 2000L;
+
+        Category category = new Category();
+        category.setId(3L);
+        category.setSlug(categorySlug);
+        category.setName("Phones");
+
+        Product product = Product.builder()
+            .id(1L)
+            .name("Galaxy S")
+            .slug("galaxy-s")
+            .thumbnailMediaId(thumbnailId)
+            .build();
+
+        ProductCategory productCategory = ProductCategory.builder()
+            .product(product)
+            .category(category)
+            .build();
+
+        PageRequest pageable = PageRequest.of(pageNo, pageSize);
+        Page<ProductCategory> productCategoryPage = new PageImpl<>(List.of(productCategory), pageable, 1);
+
+        when(categoryRepository.findBySlug(categorySlug)).thenReturn(Optional.of(category));
+        when(productCategoryRepository.findAllByCategory(any(Pageable.class), eq(category))).thenReturn(productCategoryPage);
+        when(mediaService.getMedia(thumbnailId))
+            .thenReturn(new NoFileMediaVm(thumbnailId, "", "", "", "http://thumb-galaxy"));
+
+        // When
+        var result = productService.getProductsFromCategory(pageNo, pageSize, categorySlug);
+
+        // Then
+        assertEquals(pageNo, result.pageNo());
+        assertEquals(pageSize, result.pageSize());
+        assertEquals(1, result.totalElements());
+        assertEquals(1, result.totalPages());
+        assertEquals(true, result.isLast());
+        assertEquals(1, result.productContent().size());
+        assertEquals(1L, result.productContent().getFirst().id());
+        assertEquals("Galaxy S", result.productContent().getFirst().name());
+        assertEquals("galaxy-s", result.productContent().getFirst().slug());
+        assertEquals("http://thumb-galaxy", result.productContent().getFirst().thumbnailUrl());
+    }
 }
