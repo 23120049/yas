@@ -23,6 +23,8 @@ import com.yas.product.model.ProductCategory;
 import com.yas.product.model.ProductImage;
 import com.yas.product.model.ProductOption;
 import com.yas.product.model.ProductRelated;
+import com.yas.product.model.attribute.ProductAttribute;
+import com.yas.product.model.attribute.ProductAttributeValue;
 import com.yas.product.model.enumeration.DimensionUnit;
 import com.yas.product.repository.BrandRepository;
 import com.yas.product.repository.CategoryRepository;
@@ -44,6 +46,7 @@ import com.yas.product.viewmodel.product.ProductOptionValueDisplay;
 import com.yas.product.viewmodel.product.ProductVariationPostVm;
 import com.yas.product.viewmodel.product.ProductVariationPutVm;
 import com.yas.product.viewmodel.product.ProductDetailVm;
+import com.yas.product.viewmodel.product.ProductEsDetailVm;
 import com.yas.product.viewmodel.productoption.ProductOptionValuePostVm;
 import com.yas.product.viewmodel.productoption.ProductOptionValuePutVm;
 import java.util.Map;
@@ -1153,5 +1156,78 @@ class ProductServiceTest {
         assertEquals("Meta Description", vm.metaDescription());
 
         verify(productRepository).getExportingProducts(eq("iphone"), eq("Apple"));
+    }
+
+    @Test
+    void getProductEsDetailById_whenProductExists_thenReturnVmWithCategoryAndAttributeNames() {
+        // Given
+        long productId = 200L;
+
+        Category category1 = new Category();
+        category1.setId(1L);
+        category1.setName("Phones");
+
+        Category category2 = new Category();
+        category2.setId(2L);
+        category2.setName("Electronics");
+
+        ProductAttribute attribute1 = ProductAttribute.builder().id(11L).name("Color").build();
+        ProductAttribute attribute2 = ProductAttribute.builder().id(12L).name("Storage").build();
+
+        Product product = Product.builder()
+            .id(productId)
+            .name("iPhone 15")
+            .slug("iphone-15")
+            .price(999.0)
+            .isPublished(true)
+            .isVisibleIndividually(true)
+            .isAllowedToOrder(true)
+            .isFeatured(false)
+            .thumbnailMediaId(777L)
+            .build();
+
+        ProductCategory productCategory1 = ProductCategory.builder().product(product).category(category1).build();
+        ProductCategory productCategory2 = ProductCategory.builder().product(product).category(category2).build();
+        product.setProductCategories(List.of(productCategory1, productCategory2));
+
+        ProductAttributeValue attributeValue1 = new ProductAttributeValue();
+        attributeValue1.setProduct(product);
+        attributeValue1.setProductAttribute(attribute1);
+        attributeValue1.setValue("Red");
+
+        ProductAttributeValue attributeValue2 = new ProductAttributeValue();
+        attributeValue2.setProduct(product);
+        attributeValue2.setProductAttribute(attribute2);
+        attributeValue2.setValue("128GB");
+
+        product.setAttributeValues(List.of(attributeValue1, attributeValue2));
+
+        when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+
+        // When
+        ProductEsDetailVm result = productService.getProductEsDetailById(productId);
+
+        // Then
+        assertEquals(productId, result.id());
+        assertEquals("iPhone 15", result.name());
+        assertEquals("iphone-15", result.slug());
+        assertEquals(999.0, result.price());
+        assertEquals(true, result.isPublished());
+        assertEquals(true, result.isVisibleIndividually());
+        assertEquals(true, result.isAllowedToOrder());
+        assertEquals(false, result.isFeatured());
+        assertEquals(777L, result.thumbnailMediaId());
+        assertEquals(List.of("Phones", "Electronics"), result.categories());
+        assertEquals(List.of("Color", "Storage"), result.attributes());
+    }
+
+    @Test
+    void getProductEsDetailById_whenProductNotFound_thenThrowNotFoundException() {
+        // Given
+        long productId = 9999L;
+        when(productRepository.findById(productId)).thenReturn(Optional.empty());
+
+        // When + Then
+        assertThrows(NotFoundException.class, () -> productService.getProductEsDetailById(productId));
     }
 }
