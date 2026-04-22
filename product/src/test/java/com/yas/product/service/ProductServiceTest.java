@@ -30,6 +30,7 @@ import com.yas.product.model.attribute.ProductAttribute;
 import com.yas.product.model.attribute.ProductAttributeGroup;
 import com.yas.product.model.attribute.ProductAttributeValue;
 import com.yas.product.model.enumeration.DimensionUnit;
+import com.yas.product.model.enumeration.FilterExistInWhSelection;
 import com.yas.product.repository.BrandRepository;
 import com.yas.product.repository.CategoryRepository;
 import com.yas.product.repository.ProductCategoryRepository;
@@ -1708,6 +1709,93 @@ class ProductServiceTest {
         assertEquals("published-related", result.productContent().getFirst().slug());
         assertEquals("http://thumb-published", result.productContent().getFirst().thumbnailUrl());
         assertEquals(299.0, result.productContent().getFirst().price());
+    }
+
+    @Test
+    void getProductsByMultiQuery_whenValidInputs_thenMapToProductsGetVmSuccessfully() {
+        // Given
+        int pageNo = 0;
+        int pageSize = 2;
+        String productName = "  iPhone  ";
+        String categorySlug = "  phones  ";
+        Double startPrice = 100.0;
+        Double endPrice = 1000.0;
+        long thumbnailId = 9000L;
+
+        Product product = Product.builder()
+            .id(701L)
+            .name("iPhone 15")
+            .slug("iphone-15")
+            .thumbnailMediaId(thumbnailId)
+            .price(999.0)
+            .build();
+
+        PageRequest pageable = PageRequest.of(pageNo, pageSize);
+        Page<Product> productPage = new PageImpl<>(List.of(product), pageable, 1);
+
+        when(productRepository.findByProductNameAndCategorySlugAndPriceBetween(
+            eq("iphone"),
+            eq("phones"),
+            eq(startPrice),
+            eq(endPrice),
+            any(Pageable.class)
+        )).thenReturn(productPage);
+        when(mediaService.getMedia(thumbnailId))
+            .thenReturn(new NoFileMediaVm(thumbnailId, "", "", "", "http://thumb-iphone-15"));
+
+        // When
+        var result = productService.getProductsByMultiQuery(pageNo, pageSize, productName, categorySlug,
+            startPrice, endPrice);
+
+        // Then
+        assertEquals(pageNo, result.pageNo());
+        assertEquals(pageSize, result.pageSize());
+        assertEquals(1, result.totalElements());
+        assertEquals(1, result.totalPages());
+        assertEquals(true, result.isLast());
+        assertEquals(1, result.productContent().size());
+        assertEquals(701L, result.productContent().getFirst().id());
+        assertEquals("iPhone 15", result.productContent().getFirst().name());
+        assertEquals("iphone-15", result.productContent().getFirst().slug());
+        assertEquals("http://thumb-iphone-15", result.productContent().getFirst().thumbnailUrl());
+        assertEquals(999.0, result.productContent().getFirst().price());
+
+        verify(productRepository).findByProductNameAndCategorySlugAndPriceBetween(
+            eq("iphone"),
+            eq("phones"),
+            eq(startPrice),
+            eq(endPrice),
+            any(Pageable.class)
+        );
+    }
+
+    @Test
+    void getProductsForWarehouse_whenValidInputs_thenCallRepositoryBySelectionAndMapCorrectly() {
+        // Given
+        String name = "iphone";
+        String sku = "IP15";
+        List<Long> productIds = List.of(1L, 2L);
+        FilterExistInWhSelection selection = FilterExistInWhSelection.YES;
+
+        Product p1 = Product.builder().id(1L).name("iPhone 15").sku("IP15-001").build();
+        Product p2 = Product.builder().id(2L).name("iPhone 15 Pro").sku("IP15-002").build();
+
+        when(productRepository.findProductForWarehouse(name, sku, productIds, selection.name()))
+            .thenReturn(List.of(p1, p2));
+
+        // When
+        var result = productService.getProductsForWarehouse(name, sku, productIds, selection);
+
+        // Then
+        assertEquals(2, result.size());
+        assertEquals(1L, result.getFirst().id());
+        assertEquals("iPhone 15", result.getFirst().name());
+        assertEquals("IP15-001", result.getFirst().sku());
+        assertEquals(2L, result.get(1).id());
+        assertEquals("iPhone 15 Pro", result.get(1).name());
+        assertEquals("IP15-002", result.get(1).sku());
+
+        verify(productRepository).findProductForWarehouse(name, sku, productIds, selection.name());
     }
 
     @Test
