@@ -18,50 +18,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  Test:
-    runs-on: ubuntu-latest
-    env:
-      FROM_ORIGINAL_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.ref == 'refs/heads/main' }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
-      - uses: ./.github/workflows/actions
-      - name: Run Maven Test
-        run: mvn clean verify -pl webhook -am
-      - name: Upload Test Result Artifacts
-        uses: actions/upload-artifact@v4
-        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && (success() || failure()) }}
-        with:
-          name: Webhook-Test-Results
-          path: "webhook/**/*-reports/TEST*.xml"
-      - name: Unit Test Results
-        uses: dorny/test-reporter@v1
-        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && (success() || failure()) }}
-        with:
-          name: Webhook-Service-Unit-Test-Results
-          path: "webhook/**/*-reports/TEST*.xml"
-          reporter: java-junit
-      - name: Upload Coverage Report Artifacts
-        uses: actions/upload-artifact@v4
-        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
-        with:
-          name: Webhook-Coverage-Report
-          path: "webhook/target/site/jacoco/**"
-      - name: Add coverage report to PR
-        uses: madrapps/jacoco-report@v1.6.1
-        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
-        with:
-          paths: ${{github.workspace}}/webhook/target/site/jacoco/jacoco.xml
-          token: ${{secrets.GITHUB_TOKEN}}
-          min-coverage-overall: 80
-          min-coverage-changed-files: 60
-          title: 'Webhook Coverage Report'
-          update-comment: true
-
   Build:
     runs-on: ubuntu-latest
-    needs: Test
     env:
       FROM_ORIGINAL_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.ref == 'refs/heads/main' }}
     steps:
@@ -112,4 +70,47 @@ jobs:
         with:
           context: ./webhook
           push: true
-          tags: ghcr.io/nashtech-garage/yas-webhook:latest
+          tags: ghcr.io/23120049/yas-webhook:latest  
+          
+  Test:
+    runs-on: ubuntu-latest
+    needs: Build
+    env:
+      FROM_ORIGINAL_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.ref == 'refs/heads/main' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
+      - uses: ./.github/workflows/actions
+      - name: Run Maven Test
+        run: mvn clean verify -pl webhook -am
+      - name: Upload Test Result Artifacts
+        uses: actions/upload-artifact@v4
+        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && (success() || failure()) }}
+        with:
+          name: Webhook-Test-Results
+          path: "webhook/**/*-reports/TEST*.xml"
+      - name: Unit Test Results
+        uses: dorny/test-reporter@v1
+        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && (success() || failure()) }}
+        with:
+          name: Webhook-Service-Unit-Test-Results
+          path: "webhook/**/*-reports/TEST*.xml"
+          reporter: java-junit
+      - name: Upload Coverage Report Artifacts
+        uses: actions/upload-artifact@v4
+        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
+        with:
+          name: Webhook-Coverage-Report
+          path: "webhook/target/site/jacoco/**"
+      - name: Add coverage report to PR
+        uses: madrapps/jacoco-report@v1.6.1
+        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
+        with:
+          paths: ${{github.workspace}}/webhook/target/site/jacoco/jacoco.xml
+          token: ${{secrets.GITHUB_TOKEN}}
+          min-coverage-overall: 80
+          min-coverage-changed-files: 60
+          title: 'Webhook Coverage Report'
+          update-comment: true
+
