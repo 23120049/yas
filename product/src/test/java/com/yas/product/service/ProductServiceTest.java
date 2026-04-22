@@ -27,6 +27,7 @@ import com.yas.product.model.ProductOption;
 import com.yas.product.model.ProductOptionCombination;
 import com.yas.product.model.ProductRelated;
 import com.yas.product.model.attribute.ProductAttribute;
+import com.yas.product.model.attribute.ProductAttributeGroup;
 import com.yas.product.model.attribute.ProductAttributeValue;
 import com.yas.product.model.enumeration.DimensionUnit;
 import com.yas.product.repository.BrandRepository;
@@ -49,6 +50,7 @@ import com.yas.product.viewmodel.product.ProductOptionValueDisplay;
 import com.yas.product.viewmodel.product.ProductVariationPostVm;
 import com.yas.product.viewmodel.product.ProductVariationPutVm;
 import com.yas.product.viewmodel.product.ProductDetailVm;
+import com.yas.product.viewmodel.product.ProductDetailGetVm;
 import com.yas.product.viewmodel.product.ProductEsDetailVm;
 import com.yas.product.viewmodel.productoption.ProductOptionValuePostVm;
 import com.yas.product.viewmodel.productoption.ProductOptionValuePutVm;
@@ -1597,5 +1599,103 @@ class ProductServiceTest {
         assertEquals("Galaxy S", result.productContent().getFirst().name());
         assertEquals("galaxy-s", result.productContent().getFirst().slug());
         assertEquals("http://thumb-galaxy", result.productContent().getFirst().thumbnailUrl());
+    }
+
+    @Test
+    void getProductDetail_whenPublishedProductFound_thenMapToProductDetailGetVmWithImageUrlsAndAttributeGroups() {
+        // Given
+        String slug = "iphone-15";
+        long thumbnailId = 1000L;
+        long imageId1 = 2000L;
+        long imageId2 = 3000L;
+
+        Brand brand = new Brand();
+        brand.setId(7L);
+        brand.setName("Apple");
+
+        Category category = new Category();
+        category.setId(1L);
+        category.setName("Phones");
+
+        ProductAttributeGroup group = new ProductAttributeGroup();
+        group.setId(10L);
+        group.setName("General");
+
+        ProductAttribute colorAttribute = ProductAttribute.builder()
+            .id(11L)
+            .name("Color")
+            .productAttributeGroup(group)
+            .build();
+
+        Product product = Product.builder()
+            .id(1L)
+            .name("iPhone 15")
+            .slug(slug)
+            .shortDescription("Short")
+            .description("Description")
+            .specification("Specification")
+            .isAllowedToOrder(true)
+            .isPublished(true)
+            .isFeatured(false)
+            .hasOptions(true)
+            .price(999.0)
+            .thumbnailMediaId(thumbnailId)
+            .brand(brand)
+            .build();
+
+        ProductCategory productCategory = ProductCategory.builder().product(product).category(category).build();
+        product.setProductCategories(List.of(productCategory));
+
+        ProductImage productImage1 = ProductImage.builder().imageId(imageId1).product(product).build();
+        ProductImage productImage2 = ProductImage.builder().imageId(imageId2).product(product).build();
+        product.setProductImages(List.of(productImage1, productImage2));
+
+        ProductAttributeValue attributeValue = new ProductAttributeValue();
+        attributeValue.setProduct(product);
+        attributeValue.setProductAttribute(colorAttribute);
+        attributeValue.setValue("Red");
+        product.setAttributeValues(List.of(attributeValue));
+
+        when(productRepository.findBySlugAndIsPublishedTrue(slug)).thenReturn(Optional.of(product));
+        when(mediaService.getMedia(thumbnailId))
+            .thenReturn(new NoFileMediaVm(thumbnailId, "", "", "", "http://thumb"));
+        when(mediaService.getMedia(imageId1))
+            .thenReturn(new NoFileMediaVm(imageId1, "", "", "", "http://img-1"));
+        when(mediaService.getMedia(imageId2))
+            .thenReturn(new NoFileMediaVm(imageId2, "", "", "", "http://img-2"));
+
+        // When
+        ProductDetailGetVm result = productService.getProductDetail(slug);
+
+        // Then
+        assertEquals(1L, result.id());
+        assertEquals("iPhone 15", result.name());
+        assertEquals("Apple", result.brandName());
+        assertEquals(List.of("Phones"), result.productCategories());
+        assertEquals("Short", result.shortDescription());
+        assertEquals("Description", result.description());
+        assertEquals("Specification", result.specification());
+        assertEquals(true, result.isAllowedToOrder());
+        assertEquals(true, result.isPublished());
+        assertEquals(false, result.isFeatured());
+        assertEquals(true, result.hasOptions());
+        assertEquals(999.0, result.price());
+        assertEquals("http://thumb", result.thumbnailMediaUrl());
+        assertEquals(List.of("http://img-1", "http://img-2"), result.productImageMediaUrls());
+        assertEquals(1, result.productAttributeGroups().size());
+        assertEquals("General", result.productAttributeGroups().getFirst().name());
+        assertEquals(1, result.productAttributeGroups().getFirst().productAttributeValues().size());
+        assertEquals("Color", result.productAttributeGroups().getFirst().productAttributeValues().getFirst().name());
+        assertEquals("Red", result.productAttributeGroups().getFirst().productAttributeValues().getFirst().value());
+    }
+
+    @Test
+    void getProductDetail_whenSlugNotFound_thenThrowNotFoundException() {
+        // Given
+        String slug = "not-found";
+        when(productRepository.findBySlugAndIsPublishedTrue(slug)).thenReturn(Optional.empty());
+
+        // When + Then
+        assertThrows(NotFoundException.class, () -> productService.getProductDetail(slug));
     }
 }
