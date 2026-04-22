@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.yas.commonlibrary.exception.NotFoundException;
@@ -12,6 +13,7 @@ import com.yas.product.model.Category;
 import com.yas.product.model.Product;
 import com.yas.product.model.ProductCategory;
 import com.yas.product.model.ProductImage;
+import com.yas.product.model.enumeration.DimensionUnit;
 import com.yas.product.repository.BrandRepository;
 import com.yas.product.repository.CategoryRepository;
 import com.yas.product.repository.ProductCategoryRepository;
@@ -22,6 +24,8 @@ import com.yas.product.repository.ProductOptionValueRepository;
 import com.yas.product.repository.ProductRelatedRepository;
 import com.yas.product.repository.ProductRepository;
 import com.yas.product.viewmodel.NoFileMediaVm;
+import com.yas.product.viewmodel.product.ProductGetDetailVm;
+import com.yas.product.viewmodel.product.ProductPostVm;
 import com.yas.product.viewmodel.product.ProductDetailVm;
 import java.util.List;
 import java.util.Optional;
@@ -201,5 +205,108 @@ class ProductServiceTest {
 
         // When + Then
         assertThrows(NotFoundException.class, () -> productService.getProductById(productId));
+    }
+
+    @Test
+    void createProduct_whenNoVariations_thenCreateMainProductSuccessfullyAndReturnProductGetDetailVm() {
+        // Given
+        long savedProductId = 11L;
+
+        ProductPostVm productPostVm = new ProductPostVm(
+            "Product A",
+            "product-a",
+            null,
+            List.of(),
+            "Short",
+            "Desc",
+            "Spec",
+            "SKU-1",
+            null,
+            1.2,
+            DimensionUnit.CM,
+            10.0,
+            5.0,
+            2.0,
+            99.0,
+            true,
+            true,
+            false,
+            true,
+            true,
+            "Meta Title",
+            "Meta Keyword",
+            "Meta Description",
+            null,
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            5L
+        );
+
+        Product savedMainProduct = Product.builder()
+            .id(savedProductId)
+            .name("Product A")
+            .slug("product-a")
+            .build();
+
+        when(productRepository.findBySlugAndIsPublishedTrue("product-a")).thenReturn(Optional.empty());
+        when(productRepository.findBySkuAndIsPublishedTrue("SKU-1")).thenReturn(Optional.empty());
+        when(productRepository.save(any(Product.class))).thenReturn(savedMainProduct);
+
+        // When
+        ProductGetDetailVm result = productService.createProduct(productPostVm);
+
+        // Then
+        assertEquals(savedProductId, result.id());
+        assertEquals("Product A", result.name());
+        assertEquals("product-a", result.slug());
+    }
+
+    @Test
+    void createProduct_whenBrandNotFound_thenThrowNotFoundException() {
+        // Given
+        long brandId = 999L;
+
+        ProductPostVm productPostVm = new ProductPostVm(
+            "Product A",
+            "product-a",
+            brandId,
+            List.of(),
+            "Short",
+            "Desc",
+            "Spec",
+            "SKU-1",
+            null,
+            1.2,
+            DimensionUnit.CM,
+            10.0,
+            5.0,
+            2.0,
+            99.0,
+            true,
+            true,
+            false,
+            true,
+            true,
+            "Meta Title",
+            "Meta Keyword",
+            "Meta Description",
+            null,
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            5L
+        );
+
+        when(productRepository.findBySlugAndIsPublishedTrue("product-a")).thenReturn(Optional.empty());
+        when(productRepository.findBySkuAndIsPublishedTrue("SKU-1")).thenReturn(Optional.empty());
+        when(brandRepository.findById(brandId)).thenReturn(Optional.empty());
+
+        // When + Then
+        assertThrows(NotFoundException.class, () -> productService.createProduct(productPostVm));
     }
 }
