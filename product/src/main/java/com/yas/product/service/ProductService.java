@@ -614,8 +614,11 @@ public class ProductService {
         Pageable pageable = PageRequest.of(pageNo, pageSize);
         Page<Product> productPage;
 
-        productPage = productRepository.getProductsWithFilter(productName.trim().toLowerCase(),
-            brandName.trim(), pageable);
+        String normalizedProductName = productName == null ? "" : productName.trim().toLowerCase();
+        String normalizedBrandName = brandName == null ? null : brandName.trim();
+
+        productPage = productRepository.getProductsWithFilter(normalizedProductName,
+            normalizedBrandName, pageable);
 
         List<Product> productList = productPage.getContent();
         List<ProductListVm> productListVmList = productList.stream()

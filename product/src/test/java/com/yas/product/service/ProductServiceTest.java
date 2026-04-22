@@ -4,10 +4,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 
 import com.yas.commonlibrary.exception.NotFoundException;
 import com.yas.product.model.Brand;
@@ -31,12 +37,22 @@ import com.yas.product.viewmodel.product.ProductGetDetailVm;
 import com.yas.product.viewmodel.product.ProductPostVm;
 import com.yas.product.viewmodel.product.ProductPutVm;
 import com.yas.product.viewmodel.product.ProductQuantityPostVm;
+import com.yas.product.viewmodel.product.ProductQuantityPutVm;
+import com.yas.product.viewmodel.product.ProductOptionValueDisplay;
+import com.yas.product.viewmodel.product.ProductVariationPostVm;
 import com.yas.product.viewmodel.product.ProductVariationPutVm;
 import com.yas.product.viewmodel.product.ProductDetailVm;
+import com.yas.product.viewmodel.productoption.ProductOptionValuePostVm;
 import com.yas.product.viewmodel.productoption.ProductOptionValuePutVm;
 import java.util.Map;
 import java.util.List;
 import java.util.Optional;
+import java.lang.reflect.Method;
+import java.lang.reflect.InvocationTargetException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
@@ -46,6 +62,41 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class ProductServiceTest {
+
+    private ProductPutVm minimalProductPutVmWithCategoryIds(List<Long> categoryIds) {
+        return new ProductPutVm(
+            "Product",
+            "product",
+            1.0,
+            true,
+            true,
+            false,
+            true,
+            true,
+            null,
+            categoryIds,
+            null,
+            null,
+            null,
+            "SKU",
+            null,
+            1.0,
+            DimensionUnit.CM,
+            1.0,
+            1.0,
+            1.0,
+            null,
+            null,
+            null,
+            null,
+            List.of(),
+            List.of(),
+            List.of(new ProductOptionValuePutVm(1L, "text", 0, List.of("Red"))),
+            List.of(),
+            List.of(),
+            1L
+        );
+    }
 
     @Mock
     private ProductRepository productRepository;
@@ -320,6 +371,131 @@ class ProductServiceTest {
     }
 
     @Test
+    void createProduct_whenHasVariationsAndOptionValues_thenSaveMainAndVariationsSetHasOptionsTrue() {
+        // Given
+        long savedProductId = 12L;
+        long savedVariationId = 120L;
+        long optionId = 9L;
+
+        ProductVariationPostVm variationVm = new ProductVariationPostVm(
+            "Variant A",
+            "product-a-var",
+            "SKU-VAR-1",
+            null,
+            109.0,
+            null,
+            List.of(),
+            Map.of(optionId, "Red")
+        );
+
+        ProductPostVm productPostVm = new ProductPostVm(
+            "Product A",
+            "product-a",
+            null,
+            List.of(),
+            "Short",
+            "Desc",
+            "Spec",
+            "SKU-1",
+            null,
+            1.2,
+            DimensionUnit.CM,
+            10.0,
+            5.0,
+            2.0,
+            99.0,
+            true,
+            true,
+            false,
+            true,
+            true,
+            "Meta Title",
+            "Meta Keyword",
+            "Meta Description",
+            null,
+            List.of(),
+            List.of(variationVm),
+            List.of(new ProductOptionValuePostVm(optionId, "text", 0, List.of("Red"))),
+            List.of(ProductOptionValueDisplay.builder()
+                .productOptionId(optionId)
+                .displayType("text")
+                .displayOrder(0)
+                .value("Red")
+                .build()),
+            List.of(),
+            5L
+        );
+
+        Product savedMainProduct = Product.builder()
+            .id(savedProductId)
+            .name("Product A")
+            .slug("product-a")
+            .hasOptions(false)
+            .build();
+
+        Product savedMainProductWithOptions = Product.builder()
+            .id(savedProductId)
+            .name("Product A")
+            .slug("product-a")
+            .hasOptions(true)
+            .build();
+
+        Product savedVariation = Product.builder()
+            .id(savedVariationId)
+            .name("Variant A")
+            .slug("product-a-var")
+            .sku("SKU-VAR-1")
+            .price(109.0)
+            .parent(savedMainProductWithOptions)
+            .build();
+
+        ProductOption option = new ProductOption();
+        option.setId(optionId);
+        option.setName("Color");
+
+        var savedOptionValue = com.yas.product.model.ProductOptionValue.builder()
+            .id(1L)
+            .product(savedMainProductWithOptions)
+            .productOption(option)
+            .displayType("text")
+            .displayOrder(0)
+            .value("Red")
+            .build();
+
+        when(productRepository.findBySlugAndIsPublishedTrue("product-a")).thenReturn(Optional.empty());
+        when(productRepository.findBySkuAndIsPublishedTrue("SKU-1")).thenReturn(Optional.empty());
+        when(productRepository.findBySlugAndIsPublishedTrue("product-a-var")).thenReturn(Optional.empty());
+        when(productRepository.findBySkuAndIsPublishedTrue("SKU-VAR-1")).thenReturn(Optional.empty());
+        when(productRepository.findAllById(any())).thenReturn(List.of());
+
+        when(productRepository.save(any(Product.class))).thenReturn(savedMainProduct, savedMainProductWithOptions);
+        when(productRepository.saveAll(anyList())).thenReturn(List.of(savedVariation));
+
+        when(productOptionRepository.findAllByIdIn(List.of(optionId))).thenReturn(List.of(option));
+        when(productOptionValueRepository.saveAll(anyList())).thenReturn(List.of(savedOptionValue));
+        when(productOptionCombinationRepository.saveAll(anyList())).thenReturn(List.of());
+        when(productImageRepository.saveAll(anyList())).thenReturn(List.of());
+        when(productCategoryRepository.saveAll(anyList())).thenReturn(List.of());
+
+        // When
+        ProductGetDetailVm result = productService.createProduct(productPostVm);
+
+        // Then
+        assertEquals(savedProductId, result.id());
+        assertEquals("Product A", result.name());
+        assertEquals("product-a", result.slug());
+
+        ArgumentCaptor<Product> productCaptor = ArgumentCaptor.forClass(Product.class);
+        verify(productRepository, times(2)).save(productCaptor.capture());
+        assertEquals(true, productCaptor.getAllValues().getLast().isHasOptions());
+
+        verify(productRepository).saveAll(anyList());
+        verify(productOptionRepository).findAllByIdIn(List.of(optionId));
+        verify(productOptionValueRepository).saveAll(anyList());
+        verify(productOptionCombinationRepository).saveAll(anyList());
+    }
+
+    @Test
     void updateProduct_whenProductExists_thenUpdateBasicFieldsAndSaveToRepository() {
         // Given
         long productId = 77L;
@@ -526,5 +702,226 @@ class ProductServiceTest {
         assertEquals(1, savedProducts.size());
         assertEquals(existingProductId, savedProducts.getFirst().getId());
         assertEquals(555L, savedProducts.getFirst().getStockQuantity());
+    }
+
+    @Test
+    void updateProductCategories_whenValidCategoryIds_thenDeleteOldAndSaveNewCategories() throws Exception {
+        // Given
+        long productId = 50L;
+        long categoryId1 = 1L;
+        long categoryId2 = 2L;
+
+        Product product = Product.builder().id(productId).build();
+        ProductPutVm productPutVm = minimalProductPutVmWithCategoryIds(List.of(categoryId1, categoryId2));
+
+        Category category1 = new Category();
+        category1.setId(categoryId1);
+        Category category2 = new Category();
+        category2.setId(categoryId2);
+
+        ProductCategory old1 = ProductCategory.builder().product(product).category(category1).build();
+        ProductCategory old2 = ProductCategory.builder().product(product).category(category2).build();
+        List<ProductCategory> oldCategories = List.of(old1, old2);
+
+        when(categoryRepository.findAllById(List.of(categoryId1, categoryId2)))
+            .thenReturn(List.of(category1, category2));
+        when(productCategoryRepository.findAllByProductId(productId)).thenReturn(oldCategories);
+
+        Method method = ProductService.class.getDeclaredMethod(
+            "updateProductCategories",
+            ProductPutVm.class,
+            Product.class
+        );
+        method.setAccessible(true);
+
+        // When
+        method.invoke(productService, productPutVm, product);
+
+        // Then
+        verify(productCategoryRepository).deleteAllInBatch(oldCategories);
+
+        ArgumentCaptor<List<ProductCategory>> newCategoriesCaptor = ArgumentCaptor.forClass(List.class);
+        verify(productCategoryRepository).saveAll(newCategoriesCaptor.capture());
+
+        List<ProductCategory> newCategories = newCategoriesCaptor.getValue();
+        assertEquals(2, newCategories.size());
+        assertEquals(
+            List.of(categoryId1, categoryId2),
+            newCategories.stream().map(pc -> pc.getCategory().getId()).toList()
+        );
+        assertEquals(
+            List.of(productId, productId),
+            newCategories.stream().map(pc -> pc.getProduct().getId()).toList()
+        );
+    }
+
+    @Test
+    void updateProductCategories_whenEmptyCategoryIds_thenDeleteOldAndSaveEmptyList() throws Exception {
+        // Given
+        long productId = 51L;
+        long categoryId = 1L;
+
+        Product product = Product.builder().id(productId).build();
+        ProductPutVm productPutVm = minimalProductPutVmWithCategoryIds(List.of());
+
+        Category category = new Category();
+        category.setId(categoryId);
+        List<ProductCategory> oldCategories = List.of(
+            ProductCategory.builder().product(product).category(category).build()
+        );
+
+        when(productCategoryRepository.findAllByProductId(productId)).thenReturn(oldCategories);
+
+        Method method = ProductService.class.getDeclaredMethod(
+            "updateProductCategories",
+            ProductPutVm.class,
+            Product.class
+        );
+        method.setAccessible(true);
+
+        // When
+        method.invoke(productService, productPutVm, product);
+
+        // Then
+        verify(productCategoryRepository).deleteAllInBatch(oldCategories);
+
+        ArgumentCaptor<List<ProductCategory>> newCategoriesCaptor = ArgumentCaptor.forClass(List.class);
+        verify(productCategoryRepository).saveAll(newCategoriesCaptor.capture());
+        assertEquals(0, newCategoriesCaptor.getValue().size());
+
+        verify(categoryRepository, never()).findAllById(any());
+    }
+
+    @Test
+    void getProductsWithFilter_whenValidParams_thenCallRepositoryAndMapToProductListGetVm() {
+        // Given
+        int pageNo = 0;
+        int pageSize = 2;
+        String productName = "  iPhone  ";
+        String brandName = "  Apple  ";
+
+        Product product1 = Product.builder().id(1L).name("iPhone 15").slug("iphone-15").price(100.0).build();
+        Product product2 = Product.builder().id(2L).name("iPhone 15 Pro").slug("iphone-15-pro").price(200.0).build();
+
+        Pageable pageable = PageRequest.of(pageNo, pageSize);
+        Page<Product> page = new PageImpl<>(List.of(product1, product2), pageable, 2);
+
+        when(productRepository.getProductsWithFilter(eq("iphone"), eq("Apple"), any(Pageable.class)))
+            .thenReturn(page);
+
+        // When
+        var result = productService.getProductsWithFilter(pageNo, pageSize, productName, brandName);
+
+        // Then
+        assertEquals(pageNo, result.pageNo());
+        assertEquals(pageSize, result.pageSize());
+        assertEquals(2, result.totalElements());
+        assertEquals(1, result.totalPages());
+        assertEquals(true, result.isLast());
+        assertEquals(2, result.productContent().size());
+        assertEquals(1L, result.productContent().getFirst().id());
+        assertEquals("iPhone 15", result.productContent().getFirst().name());
+        assertEquals("iphone-15", result.productContent().getFirst().slug());
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(productRepository).getProductsWithFilter(eq("iphone"), eq("Apple"), pageableCaptor.capture());
+        assertEquals(pageable, pageableCaptor.getValue());
+    }
+
+    @Test
+    void getProductsWithFilter_whenProductNameAndBrandNameNull_thenHandleGracefullyWithoutNpe() {
+        // Given
+        int pageNo = 0;
+        int pageSize = 10;
+
+        Pageable pageable = PageRequest.of(pageNo, pageSize);
+        Page<Product> emptyPage = new PageImpl<>(List.of(), pageable, 0);
+
+        when(productRepository.getProductsWithFilter(eq(""), isNull(), any(Pageable.class)))
+            .thenReturn(emptyPage);
+
+        // When
+        var result = assertDoesNotThrow(() -> productService.getProductsWithFilter(pageNo, pageSize, null, null));
+
+        // Then
+        assertEquals(0, result.productContent().size());
+        verify(productRepository).getProductsWithFilter(eq(""), isNull(), any(Pageable.class));
+    }
+
+    @Test
+    void subtractStockQuantity_whenMoreThanFiveUpdates_thenPartitionAndSaveAdjustedStock() {
+        // Given
+        List<ProductQuantityPutVm> updates = List.of(
+            new ProductQuantityPutVm(1L, 1L),
+            new ProductQuantityPutVm(2L, 2L),
+            new ProductQuantityPutVm(3L, 3L),
+            new ProductQuantityPutVm(4L, 4L),
+            new ProductQuantityPutVm(5L, 5L),
+            new ProductQuantityPutVm(6L, 6L)
+        );
+
+        when(productRepository.findAllByIdIn(anyList())).thenAnswer(invocation -> {
+            @SuppressWarnings("unchecked")
+            List<Long> ids = (List<Long>) invocation.getArgument(0);
+            return ids.stream()
+                .map(id -> Product.builder()
+                    .id(id)
+                    .stockTrackingEnabled(true)
+                    .stockQuantity(10L)
+                    .build())
+                .toList();
+        });
+        when(productRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ArgumentCaptor<List<Long>> idListCaptor = ArgumentCaptor.forClass(List.class);
+        ArgumentCaptor<List<Product>> savedProductsCaptor = ArgumentCaptor.forClass(List.class);
+
+        // When
+        productService.subtractStockQuantity(updates);
+
+        // Then
+        verify(productRepository, times(2)).findAllByIdIn(idListCaptor.capture());
+        List<List<Long>> capturedIdLists = idListCaptor.getAllValues();
+        assertEquals(2, capturedIdLists.size());
+        assertEquals(5, capturedIdLists.getFirst().size());
+        assertEquals(1, capturedIdLists.get(1).size());
+
+        verify(productRepository, times(2)).saveAll(savedProductsCaptor.capture());
+        List<List<Product>> savedBatches = savedProductsCaptor.getAllValues();
+        assertEquals(2, savedBatches.size());
+        assertEquals(5, savedBatches.getFirst().size());
+        assertEquals(1, savedBatches.get(1).size());
+
+        List<Product> allSaved = savedBatches.stream().flatMap(List::stream).toList();
+        assertEquals(9L, allSaved.stream().filter(p -> p.getId().equals(1L)).findFirst().orElseThrow().getStockQuantity());
+        assertEquals(8L, allSaved.stream().filter(p -> p.getId().equals(2L)).findFirst().orElseThrow().getStockQuantity());
+        assertEquals(7L, allSaved.stream().filter(p -> p.getId().equals(3L)).findFirst().orElseThrow().getStockQuantity());
+        assertEquals(6L, allSaved.stream().filter(p -> p.getId().equals(4L)).findFirst().orElseThrow().getStockQuantity());
+        assertEquals(5L, allSaved.stream().filter(p -> p.getId().equals(5L)).findFirst().orElseThrow().getStockQuantity());
+        assertEquals(4L, allSaved.stream().filter(p -> p.getId().equals(6L)).findFirst().orElseThrow().getStockQuantity());
+    }
+
+    @Test
+    void subtractStockQuantity_whenQuantityGreaterThanStock_thenClampRemainingStockToZero() {
+        // Given
+        ProductQuantityPutVm update = new ProductQuantityPutVm(1L, 100L);
+        Product product = Product.builder()
+            .id(1L)
+            .stockTrackingEnabled(true)
+            .stockQuantity(10L)
+            .build();
+
+        when(productRepository.findAllByIdIn(List.of(1L))).thenReturn(List.of(product));
+        when(productRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ArgumentCaptor<List<Product>> savedProductsCaptor = ArgumentCaptor.forClass(List.class);
+
+        // When
+        productService.subtractStockQuantity(List.of(update));
+
+        // Then
+        verify(productRepository).saveAll(savedProductsCaptor.capture());
+        Product saved = savedProductsCaptor.getValue().getFirst();
+        assertEquals(0L, saved.getStockQuantity());
     }
 }
