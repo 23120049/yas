@@ -1602,6 +1602,115 @@ class ProductServiceTest {
     }
 
     @Test
+    void getRelatedProductsBackoffice_whenProductExists_thenReturnRelatedProductsAndMapParentIdCorrectly() {
+        // Given
+        long productId = 500L;
+        long parentId = 900L;
+
+        Product parent = Product.builder().id(parentId).build();
+
+        Product relatedProduct = Product.builder()
+            .id(501L)
+            .name("Related A")
+            .slug("related-a")
+            .isAllowedToOrder(true)
+            .isPublished(true)
+            .isFeatured(false)
+            .isVisibleIndividually(true)
+            .price(199.0)
+            .taxClassId(3L)
+            .parent(parent)
+            .build();
+
+        Product ownerProduct = Product.builder().id(productId).build();
+        ProductRelated relation = ProductRelated.builder()
+            .product(ownerProduct)
+            .relatedProduct(relatedProduct)
+            .build();
+        ownerProduct.setRelatedProducts(List.of(relation));
+
+        when(productRepository.findById(productId)).thenReturn(Optional.of(ownerProduct));
+
+        // When
+        var result = productService.getRelatedProductsBackoffice(productId);
+
+        // Then
+        assertEquals(1, result.size());
+        assertEquals(501L, result.getFirst().id());
+        assertEquals("Related A", result.getFirst().name());
+        assertEquals("related-a", result.getFirst().slug());
+        assertEquals(199.0, result.getFirst().price());
+        assertEquals(parentId, result.getFirst().parentId());
+    }
+
+    @Test
+    void getRelatedProductsStorefront_whenMixedPublishedStatus_thenReturnPagedResultWithPublishedProductsOnly() {
+        // Given
+        long productId = 600L;
+        int pageNo = 0;
+        int pageSize = 2;
+        long publishedThumbnailId = 7000L;
+
+        Product ownerProduct = Product.builder().id(productId).build();
+
+        Product publishedRelatedProduct = Product.builder()
+            .id(601L)
+            .name("Published Related")
+            .slug("published-related")
+            .isPublished(true)
+            .thumbnailMediaId(publishedThumbnailId)
+            .price(299.0)
+            .build();
+
+        Product unpublishedRelatedProduct = Product.builder()
+            .id(602L)
+            .name("Unpublished Related")
+            .slug("unpublished-related")
+            .isPublished(false)
+            .thumbnailMediaId(8000L)
+            .price(399.0)
+            .build();
+
+        ProductRelated publishedRelation = ProductRelated.builder()
+            .product(ownerProduct)
+            .relatedProduct(publishedRelatedProduct)
+            .build();
+
+        ProductRelated unpublishedRelation = ProductRelated.builder()
+            .product(ownerProduct)
+            .relatedProduct(unpublishedRelatedProduct)
+            .build();
+
+        PageRequest pageable = PageRequest.of(pageNo, pageSize);
+        Page<ProductRelated> relatedProductsPage = new PageImpl<>(
+            List.of(publishedRelation, unpublishedRelation),
+            pageable,
+            2
+        );
+
+        when(productRepository.findById(productId)).thenReturn(Optional.of(ownerProduct));
+        when(productRelatedRepository.findAllByProduct(ownerProduct, pageable)).thenReturn(relatedProductsPage);
+        when(mediaService.getMedia(publishedThumbnailId))
+            .thenReturn(new NoFileMediaVm(publishedThumbnailId, "", "", "", "http://thumb-published"));
+
+        // When
+        var result = productService.getRelatedProductsStorefront(productId, pageNo, pageSize);
+
+        // Then
+        assertEquals(pageNo, result.pageNo());
+        assertEquals(pageSize, result.pageSize());
+        assertEquals(2, result.totalElements());
+        assertEquals(1, result.totalPages());
+        assertEquals(true, result.isLast());
+        assertEquals(1, result.productContent().size());
+        assertEquals(601L, result.productContent().getFirst().id());
+        assertEquals("Published Related", result.productContent().getFirst().name());
+        assertEquals("published-related", result.productContent().getFirst().slug());
+        assertEquals("http://thumb-published", result.productContent().getFirst().thumbnailUrl());
+        assertEquals(299.0, result.productContent().getFirst().price());
+    }
+
+    @Test
     void getProductDetail_whenPublishedProductFound_thenMapToProductDetailGetVmWithImageUrlsAndAttributeGroups() {
         // Given
         String slug = "iphone-15";
