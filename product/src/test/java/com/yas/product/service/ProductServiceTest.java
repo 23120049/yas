@@ -35,6 +35,7 @@ import com.yas.product.repository.ProductRelatedRepository;
 import com.yas.product.repository.ProductRepository;
 import com.yas.product.viewmodel.NoFileMediaVm;
 import com.yas.product.viewmodel.product.ProductGetDetailVm;
+import com.yas.product.viewmodel.product.ProductExportingDetailVm;
 import com.yas.product.viewmodel.product.ProductPostVm;
 import com.yas.product.viewmodel.product.ProductPutVm;
 import com.yas.product.viewmodel.product.ProductQuantityPostVm;
@@ -1089,5 +1090,68 @@ class ProductServiceTest {
         ArgumentCaptor<List<ProductRelated>> savedCaptor = ArgumentCaptor.forClass(List.class);
         verify(productRelatedRepository).saveAll(savedCaptor.capture());
         assertEquals(0, savedCaptor.getValue().size());
+    }
+
+    @Test
+    void exportProducts_whenProductsFound_thenMapToProductExportingDetailVmSuccessfully() {
+        // Given
+        String productName = "  iPhone  ";
+        String brandName = "  Apple  ";
+
+        Brand brand = new Brand();
+        brand.setId(7L);
+        brand.setName("Apple");
+
+        Product product = Product.builder()
+            .id(1L)
+            .name("iPhone 15")
+            .shortDescription("Short")
+            .description("Description")
+            .specification("Specification")
+            .sku("SKU-IPHONE-15")
+            .gtin("GTIN-IPHONE-15")
+            .slug("iphone-15")
+            .isAllowedToOrder(true)
+            .isPublished(true)
+            .isFeatured(false)
+            .isVisibleIndividually(true)
+            .stockTrackingEnabled(true)
+            .price(999.0)
+            .brand(brand)
+            .metaTitle("Meta Title")
+            .metaKeyword("Meta Keyword")
+            .metaDescription("Meta Description")
+            .build();
+
+        when(productRepository.getExportingProducts(eq("iphone"), eq("Apple")))
+            .thenReturn(List.of(product));
+
+        // When
+        List<ProductExportingDetailVm> result = productService.exportProducts(productName, brandName);
+
+        // Then
+        assertEquals(1, result.size());
+        ProductExportingDetailVm vm = result.getFirst();
+        assertEquals(1L, vm.id());
+        assertEquals("iPhone 15", vm.name());
+        assertEquals("Short", vm.shortDescription());
+        assertEquals("Description", vm.description());
+        assertEquals("Specification", vm.specification());
+        assertEquals("SKU-IPHONE-15", vm.sku());
+        assertEquals("GTIN-IPHONE-15", vm.gtin());
+        assertEquals("iphone-15", vm.slug());
+        assertEquals(true, vm.isAllowedToOrder());
+        assertEquals(true, vm.isPublished());
+        assertEquals(false, vm.isFeatured());
+        assertEquals(true, vm.isVisible());
+        assertEquals(true, vm.stockTrackingEnabled());
+        assertEquals(999.0, vm.price());
+        assertEquals(7L, vm.brandId());
+        assertEquals("Apple", vm.brandName());
+        assertEquals("Meta Title", vm.metaTitle());
+        assertEquals("Meta Keyword", vm.metaKeyword());
+        assertEquals("Meta Description", vm.metaDescription());
+
+        verify(productRepository).getExportingProducts(eq("iphone"), eq("Apple"));
     }
 }
