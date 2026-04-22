@@ -15,6 +15,8 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.times;
 
+import com.yas.commonlibrary.exception.BadRequestException;
+import com.yas.commonlibrary.exception.DuplicatedException;
 import com.yas.commonlibrary.exception.NotFoundException;
 import com.yas.product.model.Brand;
 import com.yas.product.model.Category;
@@ -1229,5 +1231,154 @@ class ProductServiceTest {
 
         // When + Then
         assertThrows(NotFoundException.class, () -> productService.getProductEsDetailById(productId));
+    }
+
+    @Test
+    void validateLengthMustGreaterThanWidth_whenLengthGreaterThanWidth_thenNotThrow() throws Exception {
+        // Given
+        ProductPostVm productPostVm = new ProductPostVm(
+            "Product A",
+            "product-a",
+            null,
+            List.of(),
+            "Short",
+            "Desc",
+            "Spec",
+            "SKU-1",
+            null,
+            1.0,
+            DimensionUnit.CM,
+            10.0,
+            5.0,
+            2.0,
+            99.0,
+            true,
+            true,
+            false,
+            true,
+            true,
+            "Meta Title",
+            "Meta Keyword",
+            "Meta Description",
+            null,
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            5L
+        );
+
+        Method method = ProductService.class.getDeclaredMethod(
+            "validateLengthMustGreaterThanWidth",
+            com.yas.product.viewmodel.product.ProductSaveVm.class
+        );
+        method.setAccessible(true);
+
+        // When + Then
+        assertDoesNotThrow(() -> method.invoke(productService, productPostVm));
+    }
+
+    @Test
+    void validateLengthMustGreaterThanWidth_whenLengthLessThanWidth_thenThrowBadRequestException() throws Exception {
+        // Given
+        ProductPostVm productPostVm = new ProductPostVm(
+            "Product A",
+            "product-a",
+            null,
+            List.of(),
+            "Short",
+            "Desc",
+            "Spec",
+            "SKU-1",
+            null,
+            1.0,
+            DimensionUnit.CM,
+            4.0,
+            5.0,
+            2.0,
+            99.0,
+            true,
+            true,
+            false,
+            true,
+            true,
+            "Meta Title",
+            "Meta Keyword",
+            "Meta Description",
+            null,
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            5L
+        );
+
+        Method method = ProductService.class.getDeclaredMethod(
+            "validateLengthMustGreaterThanWidth",
+            com.yas.product.viewmodel.product.ProductSaveVm.class
+        );
+        method.setAccessible(true);
+
+        // When + Then
+        InvocationTargetException thrown = assertThrows(
+            InvocationTargetException.class,
+            () -> method.invoke(productService, productPostVm)
+        );
+        assertEquals(BadRequestException.class, thrown.getCause().getClass());
+    }
+
+    @Test
+    void validateProductVm_whenSlugDuplicatedInDatabase_thenThrowDuplicatedException() throws Exception {
+        // Given
+        ProductPostVm productPostVm = new ProductPostVm(
+            "Product A",
+            "product-a",
+            null,
+            List.of(),
+            "Short",
+            "Desc",
+            "Spec",
+            "SKU-1",
+            null,
+            1.0,
+            DimensionUnit.CM,
+            10.0,
+            5.0,
+            2.0,
+            99.0,
+            true,
+            true,
+            false,
+            true,
+            true,
+            "Meta Title",
+            "Meta Keyword",
+            "Meta Description",
+            null,
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            5L
+        );
+
+        Product existingProduct = Product.builder().id(999L).slug("product-a").build();
+        when(productRepository.findBySlugAndIsPublishedTrue("product-a")).thenReturn(Optional.of(existingProduct));
+
+        Method method = ProductService.class.getDeclaredMethod(
+            "validateProductVm",
+            com.yas.product.viewmodel.product.ProductSaveVm.class
+        );
+        method.setAccessible(true);
+
+        // When + Then
+        InvocationTargetException thrown = assertThrows(
+            InvocationTargetException.class,
+            () -> method.invoke(productService, productPostVm)
+        );
+        assertEquals(DuplicatedException.class, thrown.getCause().getClass());
     }
 }
