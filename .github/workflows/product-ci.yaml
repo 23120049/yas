@@ -64,7 +64,7 @@ jobs:
           command: test -d
           args: >
             --file=product/pom.xml 
-            --severity-threshold=high
+            --severity-threshold=high -Drevision=1.0-SNAPSHOT
       - name: OWASP Dependency Check
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         uses: dependency-check/Dependency-Check_Action@main
