@@ -30,7 +30,7 @@ jobs:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
       - uses: ./.github/workflows/actions
       - name: Run Maven Build Command
-        run: mvn clean install -pl media -am
+        run: mvn clean install -pl media -am -Drevision=1.0-SNAPSHOT
       - name: Run Maven Checkstyle
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         run: mvn checkstyle:checkstyle -pl media -am -Dcheckstyle.output.file=media-checkstyle-result.xml
@@ -51,6 +51,8 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -f media
+      - name: Add executable permission to mvnw
+        run: chmod +x media/mvnw
       - name: Snyk scan
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         uses: snyk/actions/maven@master
@@ -61,8 +63,10 @@ jobs:
         with:
           command: test
           args: >
-          --file=media/pom.xml 
-          --severity-threshold=high
+            --org=0a44793b-2f71-43df-86cc-e2cfdf5fd460 
+            --file=pom.xml 
+            --severity-threshold=critical
+            -- -f pom.xml -Drevision=1.0-SNAPSHOT -Dprojects=media
       - name: OWASP Dependency Check
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         uses: dependency-check/Dependency-Check_Action@main

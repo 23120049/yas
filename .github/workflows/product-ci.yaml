@@ -61,7 +61,7 @@ jobs:
           JAVA_HOME: ""
           JAVA_HOME_25_X64: ""
         with:
-          command: test -d
+          command: test
           args: >
             --org=0a44793b-2f71-43df-86cc-e2cfdf5fd460 
             --file=pom.xml 
