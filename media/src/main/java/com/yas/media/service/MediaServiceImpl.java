@@ -62,7 +62,7 @@ public class MediaServiceImpl implements MediaService {
     public MediaVm getMediaById(Long id) {
         NoFileMediaVm noFileMediaVm = mediaRepository.findByIdWithoutFileInReturn(id);
         if (noFileMediaVm == null) {
-            return null;
+            throw new NotFoundException(String.format("Media %d is not found", id));
         }
         String url = getMediaUrl(noFileMediaVm.id(), noFileMediaVm.fileName());
 

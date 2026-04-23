@@ -87,8 +87,7 @@ class MediaServiceUnitTest {
     void getMedia_whenMediaNotFound_thenReturnNull() {
         when(mediaRepository.findById(1L)).thenReturn(Optional.empty());
 
-        MediaVm mediaVm = mediaService.getMediaById(1L);
-        assertNull(mediaVm);
+        assertThrows(NotFoundException.class, () -> mediaService.getMediaById(1L));
     }
 
     @Test
