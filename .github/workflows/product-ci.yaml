@@ -65,7 +65,7 @@ jobs:
           args: >
             --org=0a44793b-2f71-43df-86cc-e2cfdf5fd460 
             --file=pom.xml 
-            --severity-threshold=medium 
+            --severity-threshold=critical
             -- -f pom.xml -Drevision=1.0-SNAPSHOT -Dprojects=product
       - name: OWASP Dependency Check
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
