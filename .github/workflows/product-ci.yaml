@@ -59,7 +59,7 @@ jobs:
           JAVA_HOME: ""
           JAVA_HOME_25_X64: ""
         with:
-          command: test
+          command: test -d
           args: >
             --file=product/pom.xml 
             --severity-threshold=high
