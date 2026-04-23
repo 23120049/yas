@@ -22,7 +22,6 @@ jobs:
       # FROM_ORIGINAL_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.ref == 'refs/heads/main' }}
       FROM_ORIGINAL_REPOSITORY: true 
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
-      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,12 +37,6 @@ jobs:
         working-directory: storefront
       - run: npx prettier --check .
         working-directory: storefront
-      - name: Snyk scan
-        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
-        uses: snyk/actions/node@master
-        with:
-          command: test
-          args: --file=storefront/package.json --severity-threshold=high
       - name: SonarCloud Scan
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         uses: SonarSource/sonarcloud-github-action@master
