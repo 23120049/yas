@@ -64,9 +64,9 @@ jobs:
           command: test -d
           args: >
             --org=0a44793b-2f71-43df-86cc-e2cfdf5fd460 
-            --file=product/pom.xml
+            --file=pom.xml 
             --severity-threshold=medium 
-            -Drevision=1.0-SNAPSHOT
+            -- -pl product -am -Drevision=1.0-SNAPSHOT
       - name: OWASP Dependency Check
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         uses: dependency-check/Dependency-Check_Action@main
