@@ -55,6 +55,10 @@ jobs:
       - name: Snyk scan
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         uses: snyk/actions/maven@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          JAVA_HOME: ""
+          JAVA_HOME_25_X64: ""
         with:
           command: test
           args: --file=customer/pom.xml --severity-threshold=high
