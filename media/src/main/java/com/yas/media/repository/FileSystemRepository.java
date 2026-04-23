@@ -47,6 +47,16 @@ public class FileSystemRepository {
         }
     }
 
+    public void deleteFile(String filePath) {
+        Path path = Paths.get(filePath);
+        try {
+            Files.deleteIfExists(path);
+            log.info("File deleted: {}", filePath);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to delete file: " + filePath, e);
+        }
+    }
+
     private Path buildFilePath(String filename) {
         // Validate the filename
         if (filename.contains("..") || filename.contains("/") || filename.contains("\\")) {

@@ -14,16 +14,21 @@ import com.yas.commonlibrary.exception.NotFoundException;
 import com.yas.media.config.YasConfig;
 import com.yas.media.mapper.MediaVmMapper;
 import com.yas.media.model.Media;
+import com.yas.media.model.dto.MediaDto;
 import com.yas.media.repository.FileSystemRepository;
 import com.yas.media.repository.MediaRepository;
 import com.yas.media.viewmodel.MediaVm;
 import com.yas.media.viewmodel.NoFileMediaVm;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.MediaType;
 
 @ExtendWith(MockitoExtension.class)
 class MediaServiceImplTest {
@@ -132,6 +137,75 @@ class MediaServiceImplTest {
         assertEquals(3L, result.get(1).getId());
         verify(mediaRepository, times(1)).findAllById(ids);
         verify(mediaVmMapper, times(2)).toVm(any(Media.class));
+    }
+
+    @Test
+    void getFile_whenMediaExistsAndFileNameMatches_thenReturnContentAndMediaType() {
+        // Given: media metadata exists and filesystem returns stream content
+        Long mediaId = 10L;
+        String fileName = "banner.png";
+        String filePath = "C:/tmp/banner.png";
+        Media media = buildMedia(mediaId, fileName, "image/png", "banner");
+        media.setFilePath(filePath);
+        InputStream content = new ByteArrayInputStream(new byte[] {1, 2, 3});
+
+        when(mediaRepository.findById(mediaId)).thenReturn(Optional.of(media));
+        when(fileSystemRepository.getFile(filePath)).thenReturn(content);
+
+        // When: getFile is invoked
+        MediaDto result = mediaService.getFile(mediaId, fileName);
+
+        // Then: dto contains content and parsed media type
+        assertNotNull(result);
+        assertEquals(MediaType.IMAGE_PNG, result.getMediaType());
+        assertEquals(content, result.getContent());
+        verify(mediaRepository, times(1)).findById(mediaId);
+        verify(fileSystemRepository, times(1)).getFile(filePath);
+    }
+
+    @Test
+    void getFile_whenFileNameDoesNotMatch_thenThrowNotFoundException() {
+        // Given: media exists but requested file name does not match
+        Long mediaId = 11L;
+        Media media = buildMedia(mediaId, "actual.png", "image/png", "actual");
+        media.setFilePath("C:/tmp/actual.png");
+        when(mediaRepository.findById(mediaId)).thenReturn(Optional.of(media));
+
+        // When + Then: service throws NotFoundException
+        assertThrows(NotFoundException.class, () -> mediaService.getFile(mediaId, "wrong.png"));
+        verify(mediaRepository, times(1)).findById(mediaId);
+        verify(fileSystemRepository, never()).getFile(any(String.class));
+    }
+
+    @Test
+    void removeMedia_whenMediaExists_thenDeleteFileAndDeleteFromDatabase() {
+        // Given: media exists with a persisted file path
+        Long mediaId = 12L;
+        String filePath = "C:/tmp/delete-me.png";
+        Media media = buildMedia(mediaId, "delete-me.png", "image/png", "to-delete");
+        media.setFilePath(filePath);
+        when(mediaRepository.findById(mediaId)).thenReturn(Optional.of(media));
+
+        // When: removeMedia is invoked
+        mediaService.removeMedia(mediaId);
+
+        // Then: both physical file and database record are deleted
+        verify(mediaRepository, times(1)).findById(mediaId);
+        verify(fileSystemRepository, times(1)).deleteFile(filePath);
+        verify(mediaRepository, times(1)).delete(media);
+    }
+
+    @Test
+    void removeMedia_whenMediaDoesNotExist_thenThrowNotFoundExceptionAndSkipDeletion() {
+        // Given: media id does not exist
+        Long mediaId = 13L;
+        when(mediaRepository.findById(mediaId)).thenReturn(Optional.empty());
+
+        // When + Then: service throws and does not perform any delete
+        assertThrows(NotFoundException.class, () -> mediaService.removeMedia(mediaId));
+        verify(mediaRepository, times(1)).findById(mediaId);
+        verify(fileSystemRepository, never()).deleteFile(any(String.class));
+        verify(mediaRepository, never()).delete(any(Media.class));
     }
 
     private Media buildMedia(Long id, String fileName, String mediaType, String caption) {
