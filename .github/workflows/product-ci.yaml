@@ -51,6 +51,8 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -f product
+      - name: Add executable permission to mvnw
+        run: chmod +x ./mvnw
       - name: Snyk scan
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         uses: snyk/actions/maven@master
