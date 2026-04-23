@@ -61,6 +61,7 @@ jobs:
           JAVA_HOME: ""
           JAVA_HOME_25_X64: ""
         with:
+          command: test -d
           args: --severity-threshold=medium -- -pl product -Drevision=1.0-SNAPSHOT
       - name: OWASP Dependency Check
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
