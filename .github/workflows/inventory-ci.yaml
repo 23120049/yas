@@ -78,7 +78,9 @@ jobs:
           JAVA_HOME_25_X64: ""
         with:
           command: test
-          args: --file=inventory/pom.xml --severity-threshold=high
+          args: >
+          --file=inventory/pom.xml 
+          --severity-threshold=high
       - name: Add coverage report to PR
         uses: madrapps/jacoco-report@v1.6.1
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}

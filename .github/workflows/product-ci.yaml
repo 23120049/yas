@@ -60,7 +60,9 @@ jobs:
           JAVA_HOME_25_X64: ""
         with:
           command: test
-          args: --file=product/pom.xml --severity-threshold=high
+          args: >
+            --file=product/pom.xml 
+            --severity-threshold=high
       - name: OWASP Dependency Check
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         uses: dependency-check/Dependency-Check_Action@main
