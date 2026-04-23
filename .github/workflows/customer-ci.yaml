@@ -24,6 +24,7 @@ jobs:
       # FROM_ORIGINAL_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.ref == 'refs/heads/main' }}
      FROM_ORIGINAL_REPOSITORY: true 
      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+     SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -51,6 +52,12 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -f customer
+      - name: Snyk scan
+        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
+        uses: snyk/actions/maven@master
+        with:
+          command: test
+          args: --file=customer/pom.xml --severity-threshold=high
       - name: OWASP Dependency Check
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         uses: dependency-check/Dependency-Check_Action@main
