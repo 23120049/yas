@@ -95,7 +95,7 @@ jobs:
           path: "backoffice-bff/**/*-reports/TEST*.xml"
       - name: Test Results
         uses: dorny/test-reporter@v1
-        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && (success() || failure()) }}
+        if: always() && hashFiles('backoffice-bff/target/surefire-reports/TEST-*.xml') != ''
         with:
           name: Backoffice-BFF-Unit-Test-Results
           path: "backoffice-bff/**/*-reports/TEST*.xml"
