@@ -4,21 +4,17 @@ import com.yas.order.model.Checkout;
 import com.yas.order.model.CheckoutItem;
 import com.yas.order.viewmodel.checkout.CheckoutItemPostVm;
 import com.yas.order.viewmodel.checkout.CheckoutPostVm;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Set;
 import org.assertj.core.api.Assertions;
 import org.instancio.Instancio;
 import static org.instancio.Select.field;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-@ExtendWith(SpringExtension.class)
-@SpringBootTest(classes = {CheckoutMapperImpl.class})
 class CheckoutMapperTest {
 
-    @Autowired
-    CheckoutMapper checkoutMapper;
+    private final CheckoutMapper checkoutMapper = new CheckoutMapperImpl();
 
     @Test
     void testCheckoutItemPostVmToModel_convertToCorrectCheckoutItem() {
@@ -39,7 +35,6 @@ class CheckoutMapperTest {
         CheckoutPostVm checkoutPostVm = Instancio.of(CheckoutPostVm.class)
                 .supply(field(CheckoutPostVm.class, "shippingAddressId"), gen -> Long.toString(gen.longRange(1, 10000)))
                 .create();
-        System.out.println(checkoutPostVm.toString());
         var res = checkoutMapper.toModel(checkoutPostVm);
 
         Assertions.assertThat(res)
@@ -55,7 +50,21 @@ class CheckoutMapperTest {
     @Test
     void testCheckoutToVm_convertToCheckoutVmCorrectly() {
 
-        Checkout checkout = Instancio.create(Checkout.class);
+        Checkout checkout = Checkout.builder()
+            .id("checkout-1")
+            .email("user@example.com")
+            .note("note")
+            .promotionCode("PROMO")
+            .shipmentMethodId("ship-1")
+            .paymentMethodId("pay-1")
+            .shippingAddressId(10L)
+            .totalAmount(new BigDecimal("100.00"))
+            .totalShipmentFee(new BigDecimal("5.00"))
+            .totalShipmentTax(new BigDecimal("0.50"))
+            .totalTax(new BigDecimal("2.00"))
+            .totalDiscountAmount(new BigDecimal("1.00"))
+            .checkoutItems(List.of())
+            .build();
 
         var res = checkoutMapper.toVm(checkout);
 
@@ -73,7 +82,20 @@ class CheckoutMapperTest {
     @Test
     void testCheckoutItemToVm_convertCheckoutItemCorrectly() {
 
-        CheckoutItem checkoutItem = Instancio.create(CheckoutItem.class);
+        Checkout checkout = Checkout.builder().id("checkout-123").build();
+        CheckoutItem checkoutItem = CheckoutItem.builder()
+            .id(1L)
+            .productId(101L)
+            .productName("Product")
+            .description("Desc")
+            .quantity(2)
+            .productPrice(new BigDecimal("9.99"))
+            .taxAmount(new BigDecimal("1.23"))
+            .discountAmount(new BigDecimal("0.50"))
+            .shipmentFee(new BigDecimal("2.00"))
+            .shipmentTax(new BigDecimal("0.20"))
+            .checkout(checkout)
+            .build();
 
         var res = checkoutMapper.toVm(checkoutItem);
 
@@ -89,5 +111,16 @@ class CheckoutMapperTest {
                 .hasFieldOrPropertyWithValue("shipmentFee", checkoutItem.getShipmentFee())
                 .hasFieldOrPropertyWithValue("shipmentTax", checkoutItem.getShipmentTax())
                 .hasFieldOrPropertyWithValue("checkoutId", checkoutItem.getCheckout().getId());
+    }
+
+    @Test
+    void map_whenNull_thenReturnZero() {
+        Assertions.assertThat(checkoutMapper.map(null)).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    void map_whenNotNull_thenReturnSameValue() {
+        BigDecimal value = new BigDecimal("12.34");
+        Assertions.assertThat(checkoutMapper.map(value)).isSameAs(value);
     }
 }
