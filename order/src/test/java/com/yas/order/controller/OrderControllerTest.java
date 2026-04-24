@@ -33,20 +33,29 @@ import com.yas.order.viewmodel.orderaddress.OrderAddressPostVm;
 import com.yas.order.viewmodel.orderaddress.OrderAddressVm;
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import org.hamcrest.Matchers;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.format.FormatterRegistry;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import org.springframework.core.convert.converter.Converter;
+import org.springframework.context.annotation.Import;
 
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
@@ -54,6 +63,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 @WebMvcTest(controllers = OrderController.class,
     excludeAutoConfiguration = OAuth2ResourceServerAutoConfiguration.class)
 @AutoConfigureMockMvc(addFilters = false)
+@Import(OrderControllerTest.ZonedDateTimeTestWebConfig.class)
 class OrderControllerTest {
 
     @MockitoBean
@@ -63,6 +73,23 @@ class OrderControllerTest {
     private MockMvc mockMvc;
 
     private ObjectWriter objectWriter;
+
+    @TestConfiguration
+    static class ZonedDateTimeTestWebConfig implements WebMvcConfigurer {
+        @Override
+        public void addFormatters(FormatterRegistry registry) {
+            registry.addConverter(new Converter<String, ZonedDateTime>() {
+                @Override
+                public ZonedDateTime convert(String source) {
+                    if (source == null || source.isBlank()) {
+                        return null;
+                    }
+                    LocalDate date = LocalDate.parse(source, DateTimeFormatter.ISO_LOCAL_DATE);
+                    return date.atStartOfDay().atZone(ZoneOffset.UTC);
+                }
+            });
+        }
+    }
 
     @BeforeEach
     void setUp() {
@@ -181,7 +208,6 @@ class OrderControllerTest {
     }
 
     @Test
-    @org.junit.jupiter.api.Disabled("Date parameter conversion requires full Spring Boot context")
     void testGetOrders_whenRequestIsValid_thenReturnOrderListVm() throws Exception {
 
         OrderListVm orderListVm = new OrderListVm(
@@ -199,9 +225,16 @@ class OrderControllerTest {
         )).thenReturn(orderListVm);
 
         mockMvc.perform(get("/backoffice/orders")
-                .param("createdFrom", "1970-01-01T00:00:00Z")
-                .param("createdTo", ZonedDateTime.now().toString())
-                .accept(MediaType.APPLICATION_JSON))
+            .param("createdFrom", "1970-01-01")
+            .param("createdTo", "1970-01-02")
+            .param("productName", "")
+            .param("orderStatus", OrderStatus.COMPLETED.toString())
+            .param("billingPhoneNumber", "")
+            .param("email", "")
+            .param("billingCountry", "")
+            .param("pageNo", "0")
+            .param("pageSize", "10")
+            .accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isOk())
             .andExpect(MockMvcResultMatchers.content()
                 .json(objectWriter.writeValueAsString(orderListVm)));
@@ -221,10 +254,29 @@ class OrderControllerTest {
     }
 
     @Test
-    @org.junit.jupiter.api.Disabled("Flaky assertion based on current time")
+    void testGetOrderWithCheckoutId_whenRequestIsValid_thenReturnOrderGetVm() throws Exception {
+        String checkoutId = "checkout-1";
+        OrderGetVm response = new OrderGetVm(
+            1L,
+            OrderStatus.COMPLETED,
+            new BigDecimal("100.00"),
+            DeliveryStatus.DELIVERED,
+            DeliveryMethod.YAS_EXPRESS,
+            List.of(),
+            ZonedDateTime.parse("2020-01-01T00:00:00Z")
+        );
+
+        when(orderService.findOrderVmByCheckoutId(checkoutId)).thenReturn(response);
+
+        mockMvc.perform(get("/storefront/orders/checkout/{id}", checkoutId)
+                .accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(MockMvcResultMatchers.content().json(objectWriter.writeValueAsString(response)));
+    }
+
+    @Test
     void testExportCsv_whenRequestIsValid_thenReturnCsvFile() throws Exception {
         ObjectMapper mapper = new ObjectMapper();
-        // Note: JavaTimeModule registration removed - not used for this test
         OrderRequest orderRequest = new OrderRequest();
         byte[] csvBytes = "ID,Name,Tags\n1,Alice,tag1,tag2\n2,Bob,tag3,tag4\n".getBytes();
 
@@ -235,9 +287,10 @@ class OrderControllerTest {
                 .accept(MediaType.APPLICATION_JSON)
                 .content(mapper.writeValueAsString(orderRequest)))
             .andExpect(status().isOk())
-            .andExpect(MockMvcResultMatchers.header().string(HttpHeaders.CONTENT_DISPOSITION,
-                "attachment; filename=Orders_" +
-                    ZonedDateTime.now().format(DateTimeFormatter.ofPattern("dd-MM-yyyy_HH-mm-ss")) + ".csv"))
+            .andExpect(MockMvcResultMatchers.header().string(
+                HttpHeaders.CONTENT_DISPOSITION,
+                Matchers.matchesPattern("attachment; filename=Orders_\\d{2}-\\d{2}-\\d{4}_\\d{2}-\\d{2}-\\d{2}\\.csv")
+            ))
             .andExpect(MockMvcResultMatchers.content().bytes(csvBytes));
     }
 
