@@ -87,8 +87,7 @@ class MediaServiceUnitTest {
     void getMedia_whenMediaNotFound_thenReturnNull() {
         when(mediaRepository.findById(1L)).thenReturn(Optional.empty());
 
-        MediaVm mediaVm = mediaService.getMediaById(1L);
-        assertNull(mediaVm);
+        assertThrows(NotFoundException.class, () -> mediaService.getMediaById(1L));
     }
 
     @Test
@@ -101,13 +100,15 @@ class MediaServiceUnitTest {
 
     @Test
     void removeMedia_whenValidId_thenRemoveSuccess() {
-        NoFileMediaVm noFileMediaVm = new NoFileMediaVm(1L, "Test", "fileName", "image/png");
-        when(mediaRepository.findByIdWithoutFileInReturn(1L)).thenReturn(noFileMediaVm);
-        doNothing().when(mediaRepository).deleteById(1L);
+        media.setFilePath("C:/tmp/file");
+        when(mediaRepository.findById(1L)).thenReturn(Optional.of(media));
+        doNothing().when(fileSystemRepository).deleteFile(media.getFilePath());
+        doNothing().when(mediaRepository).delete(media);
 
         mediaService.removeMedia(1L);
 
-        verify(mediaRepository, times(1)).deleteById(1L);
+        verify(fileSystemRepository, times(1)).deleteFile(media.getFilePath());
+        verify(mediaRepository, times(1)).delete(media);
     }
 
     @Test
@@ -226,26 +227,16 @@ class MediaServiceUnitTest {
 
     @Test
     void getFile_whenMediaNotFound_thenReturnMediaDto() {
-        MediaDto expectedDto = MediaDto.builder().build();
         when(mediaRepository.findById(1L)).thenReturn(Optional.ofNullable(null));
-        when(builder.build()).thenReturn(expectedDto);
 
-        MediaDto mediaDto = mediaService.getFile(1L, "fileName");
-
-        assertEquals(expectedDto.getMediaType(), mediaDto.getMediaType());
-        assertEquals(expectedDto.getContent(), mediaDto.getContent());
+        assertThrows(NotFoundException.class, () -> mediaService.getFile(1L, "fileName"));
     }
 
     @Test
     void getFile_whenMediaNameNotMatch_thenReturnMediaDto() {
-        MediaDto expectedDto = MediaDto.builder().build();
         when(mediaRepository.findById(1L)).thenReturn(Optional.ofNullable(media));
-        when(builder.build()).thenReturn(expectedDto);
 
-        MediaDto mediaDto = mediaService.getFile(1L, "fileName");
-
-        assertEquals(expectedDto.getMediaType(), mediaDto.getMediaType());
-        assertEquals(expectedDto.getContent(), mediaDto.getContent());
+        assertThrows(NotFoundException.class, () -> mediaService.getFile(1L, "fileName"));
     }
 
     @Test
