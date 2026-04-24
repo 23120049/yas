@@ -29,8 +29,17 @@ jobs:
         with:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
       - uses: ./.github/workflows/actions
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'maven' # One line replaces the whole manual cache block
       - name: Run Maven Build Command
-        run: mvn clean install -pl customer -am
+        # Build the common-library first, then the cart service
+        run: |
+          mvn clean install -pl common-library -DskipTests -Djacoco.skip=true
+          mvn clean install -pl customer -am -DskipTests -Djacoco.skip=true
       - name: Run Maven Checkstyle
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         run: mvn checkstyle:checkstyle -pl customer -am -Dcheckstyle.output.file=customer-checkstyle-result.xml
@@ -84,6 +93,12 @@ jobs:
         with:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
       - uses: ./.github/workflows/actions
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'maven' # One line replaces the whole manual cache block
       - name: Run Maven Test
         run: mvn clean verify -pl customer -am
       - name: Upload Test Result Artifacts
