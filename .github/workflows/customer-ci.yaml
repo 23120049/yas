@@ -116,7 +116,7 @@ jobs:
           distribution: 'temurin'
           cache: 'maven' # One line replaces the whole manual cache block
       - name: Run Maven Test
-        run: mvn clean verify -DskipTests -pl customer -am
+        run: mvn clean verify -pl customer -am
       - name: Upload Test Result Artifacts
         uses: actions/upload-artifact@v4
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && (success() || failure()) }}
@@ -125,7 +125,7 @@ jobs:
           path: "customer/**/*-reports/TEST*.xml"
       - name: Test Results
         uses: dorny/test-reporter@v1
-        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && (success() || failure()) }}
+        if: always() && hashFiles('customer/**/TEST-*.xml') != ''
         with:
           name: Customer-Service-Unit-Test-Results
           path: "customer/**/*-reports/TEST*.xml"

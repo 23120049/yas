@@ -126,7 +126,7 @@ jobs:
           path: "product/**/*-reports/TEST*.xml"
       - name: Test Results
         uses: dorny/test-reporter@v1
-        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && (success() || failure()) }}
+        if: always() && hashFiles('product/**/TEST-*.xml') != ''
         with:
           name: Product-Service-Unit-Test-Results
           path: "product/**/*-reports/TEST*.xml"
