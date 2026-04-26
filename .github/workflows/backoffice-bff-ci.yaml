@@ -71,7 +71,7 @@ jobs:
           project: 'yas'
           path: '.'
           format: 'HTML'
-          # Use args to explicitly tell the CLI to skip Central and/or NVD updates
+          # Use args to explicitly tell the CLI to skip Central and/or NVD updates TEST TEST TEST 
           args: >
             --disableCentral
       - name: Upload OWASP Dependency Check results
