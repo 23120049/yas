@@ -57,6 +57,3 @@ jobs:
           context: ./{{SERVICE_NAME}}
           push: true
           tags: ghcr.io/nashtech-garage/yas-{{SERVICE_NAME}}:latest
-
-
-          test 
