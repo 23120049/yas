@@ -57,3 +57,5 @@ jobs:
           context: ./storefront
           push: true
           tags: ghcr.io/23120049/yas-storefront:latest
+
+          # test 
