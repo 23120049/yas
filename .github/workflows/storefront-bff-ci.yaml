@@ -101,3 +101,5 @@ jobs:
           context: ./storefront-bff
           push: true
           tags: ghcr.io/23120049/yas-storefront-bff:latest
+
+          # test 
