@@ -107,3 +107,5 @@ jobs:
           context: ./inventory
           push: true
           tags: ghcr.io/23120049/yas-inventory:latest
+
+          # test 
