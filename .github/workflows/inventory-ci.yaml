@@ -44,8 +44,11 @@ jobs:
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && (success() || failure()) }}
         with:
           name: Inventory-Service-Test-Results
-          path: "inventory/**/*-reports/TEST*.xml"
+          path: "inventory/target/surefire-reports/TEST*.xml,inventory/target/failsafe-reports/TEST*.xml"
           reporter: java-junit
+          # Chỉ đọc từ workspace hiện tại, không đọc artifacts từ workflow khác
+          use-actions-summary: false
+          only-summary: false
       - name: OWASP Dependency Check
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         uses: dependency-check/Dependency-Check_Action@main

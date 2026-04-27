@@ -44,8 +44,11 @@ jobs:
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && (success() || failure()) }}
         with:
           name: Location-Service-Unit-Test-Results
-          path: "location/**/*-reports/TEST*.xml"
+          path: "location/target/surefire-reports/TEST*.xml,location/target/failsafe-reports/TEST*.xml"
           reporter: java-junit
+          # Chỉ đọc từ workspace hiện tại, không đọc artifacts từ workflow khác
+          use-actions-summary: false
+          only-summary: false
       - name: Analyze with sonar cloud
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         env:
