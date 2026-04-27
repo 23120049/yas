@@ -125,7 +125,7 @@ jobs:
           path: "backoffice-bff/target/site/jacoco/**"
       - name: Add coverage report to PR
         uses: madrapps/jacoco-report@v1.6.1
-        if: ${{ (github.event_name == 'pull_request' || github.event_name == 'push') && env.FROM_ORIGINAL_REPOSITORY == 'true' }}
+        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         with:
           paths: ${{github.workspace}}/backoffice-bff/target/site/jacoco/jacoco.xml
           token: ${{secrets.GITHUB_TOKEN}}
