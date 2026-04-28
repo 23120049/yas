@@ -40,7 +40,6 @@ jobs:
         run: |
           mvn clean install -pl common-library -DskipTests -Djacoco.skip=true
           mvn clean install -pl cart -am -DskipTests -Djacoco.skip=true
-        run: mvn clean install -pl cart -am -Drevision=1.0-SNAPSHOT
       - name: Run Maven Checkstyle
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         run: mvn checkstyle:checkstyle -pl cart -Dcheckstyle.output.file=cart-checkstyle-result.xml
