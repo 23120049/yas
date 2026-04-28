@@ -17,6 +17,7 @@
         <sonar.organization>23120049</sonar.organization>
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
         <sonar.projectKey>23120049_yas_sampledata</sonar.projectKey>
+		<sonar.projectName>sampledata</sonar.projectName>
     </properties>
     <dependencies>
         <dependency>

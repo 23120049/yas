@@ -16,6 +16,7 @@
         <sonar.organization>23120049</sonar.organization>
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
         <sonar.projectKey>23120049_yas_tax</sonar.projectKey>
+		<sonar.projectName>tax</sonar.projectName>
     </properties>
     <dependencies>
         <dependency>
