@@ -126,7 +126,7 @@ jobs:
           distribution: 'temurin'
           cache: 'maven' # One line replaces the whole manual cache block
       - name: Run Maven Test
-        run: mvn test -pl cart -am
+        run: mvn test jacoco:report -pl cart -am
       - name: Upload Test Result Artifacts
         uses: actions/upload-artifact@v4
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && (success() || failure()) }}
