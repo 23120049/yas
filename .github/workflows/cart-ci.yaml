@@ -42,7 +42,7 @@ jobs:
           mvn clean install -pl cart -am -DskipTests -Djacoco.skip=true -Drevision=1.0-SNAPSHOT
       - name: Run Maven Checkstyle
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
-        run: mvn checkstyle:checkstyle -pl cart -Dcheckstyle.output.file=cart-checkstyle-result.xml
+        run: mvn checkstyle:checkstyle -pl cart -Dcheckstyle.output.file=cart-checkstyle-result.xml -Drevision=1.0-SNAPSHOT
       - name: Upload Checkstyle Result
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         uses: jwgmeligmeyling/checkstyle-github-action@master
