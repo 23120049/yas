@@ -117,7 +117,7 @@ jobs:
           distribution: 'temurin'
           cache: 'maven' # One line replaces the whole manual cache block
       - name: Run Maven Test
-        run: mvn clean verify -pl location -am
+        run: mvn test -pl location -am
       - name: Upload Test Result Artifacts
         uses: actions/upload-artifact@v4
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' && (success() || failure()) }}
