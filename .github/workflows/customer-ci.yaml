@@ -52,7 +52,7 @@ jobs:
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -f customer -Dsonar.projectName="customer"
+        run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -f customer
       - name: Add executable permission to mvnw
         run: chmod +x customer/mvnw
       - name: Snyk scan

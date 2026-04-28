@@ -52,7 +52,7 @@ jobs:
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -f recommendation -Dsonar.projectName="recommendation"
+        run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -f recommendation
       - name: Snyk scan
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         uses: snyk/actions/maven@master
