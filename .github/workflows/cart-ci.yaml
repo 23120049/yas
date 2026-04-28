@@ -38,7 +38,7 @@ jobs:
       - name: Run Maven Build Command
         # Build the common-library first, then the cart service
         run: |
-          mvn clean install -pl common-library -DskipTests -Djacoco.skip=true
+          mvn clean install -pl common-library -DskipTests -Djacoco.skip=true -Drevision=1.0-SNAPSHOT
           mvn clean install -pl cart -am -DskipTests -Djacoco.skip=true -Drevision=1.0-SNAPSHOT
       - name: Run Maven Checkstyle
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
