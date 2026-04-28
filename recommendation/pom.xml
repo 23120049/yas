@@ -20,6 +20,11 @@
 
         <spring-ai.version>1.0.0-M2</spring-ai.version>
         <commons-text.version>1.12.0</commons-text.version>
+
+		<sonar.organization>23120049</sonar.organization>
+		<sonar.host.url>https://sonarcloud.io</sonar.host.url>
+		<sonar.projectKey>23120049_yas_recommendation</sonar.projectKey>
+		<sonar.projectName>recommendation</sonar.projectName>
     </properties>
 
     <dependencies>
