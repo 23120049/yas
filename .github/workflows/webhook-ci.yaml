@@ -52,7 +52,7 @@ jobs:
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -f webhook
+        run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -f webhook -Dsonar.projectName="webhook"
       - name: Add executable permission to mvnw
         run: chmod +x webhook/mvnw
       - name: Snyk scan
