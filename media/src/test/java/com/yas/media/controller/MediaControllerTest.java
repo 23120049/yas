@@ -55,7 +55,9 @@ class MediaControllerTest {
             @Override
             public boolean supports(Class<?> clazz) { return true; }
             @Override
-            public void validate(Object target, Errors errors) {}
+            public void validate(Object target, Errors errors) {
+                // no-op: validator giả dùng riêng cho unit test, luôn cho qua @Valid
+            }
         };
 
         this.mockMvc = MockMvcBuilders.standaloneSetup(mediaController)
@@ -85,7 +87,6 @@ class MediaControllerTest {
         verify(mediaService).saveMedia(any());
     }
 
-    // 2. Test DELETE /medias/{id}
     @Test
     void deleteMedia_whenCalled_thenReturn204() throws Exception {
         doNothing().when(mediaService).removeMedia(1L);
@@ -137,7 +138,6 @@ class MediaControllerTest {
             .andExpect(status().isNotFound());
     }
 
-    // 5. Test GET /medias/{id}/file/{fileName}
     @Test
     void getFile_whenCalled_thenReturnInputStream() throws Exception {
         MediaDto mockDto = mock(MediaDto.class);

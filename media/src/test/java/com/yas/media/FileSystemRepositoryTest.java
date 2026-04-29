@@ -9,6 +9,7 @@ import com.yas.media.repository.FileSystemRepository;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -105,6 +106,38 @@ class FileSystemRepositoryTest {
         when(filesystemConfig.getDirectory()).thenReturn(directoryPath);
 
         assertThrows(IllegalStateException.class, () -> fileSystemRepository.getFile(filePathStr));
+    }
+
+    @Test
+    void testPersistFile_whenFilenameHasTraversal_thenThrowsIllegalArgumentException() throws IOException {
+        new File(TEST_URL).mkdirs();
+        when(filesystemConfig.getDirectory()).thenReturn(TEST_URL);
+
+        assertThrows(IllegalArgumentException.class,
+            () -> fileSystemRepository.persistFile("../evil.png", "x".getBytes()));
+        assertThrows(IllegalArgumentException.class,
+            () -> fileSystemRepository.persistFile("..\\evil.png", "x".getBytes()));
+        assertThrows(IllegalArgumentException.class,
+            () -> fileSystemRepository.persistFile("a/b.png", "x".getBytes()));
+        assertThrows(IllegalArgumentException.class,
+            () -> fileSystemRepository.persistFile("a\\b.png", "x".getBytes()));
+    }
+
+    @Test
+    void testGetFile_whenPathIsDirectory_thenThrowsUncheckedIOException() {
+        new File(TEST_URL).mkdirs();
+        when(filesystemConfig.getDirectory()).thenReturn(TEST_URL);
+
+        assertThrows(UncheckedIOException.class, () -> fileSystemRepository.getFile(TEST_URL));
+    }
+
+    @Test
+    void testDeleteFile_whenDirectoryNotEmpty_thenThrowsUncheckedIOException() throws IOException {
+        Path directory = Paths.get(TEST_URL, "nested");
+        Files.createDirectories(directory);
+        Files.write(directory.resolve("file.txt"), "content".getBytes());
+
+        assertThrows(UncheckedIOException.class, () -> fileSystemRepository.deleteFile(directory.toString()));
     }
 
 }
