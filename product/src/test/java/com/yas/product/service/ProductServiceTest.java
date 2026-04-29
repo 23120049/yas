@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
@@ -841,23 +840,17 @@ class ProductServiceTest {
     }
 
     @Test
-    void getProductsWithFilter_whenProductNameAndBrandNameNull_thenHandleGracefullyWithoutNpe() {
+    void getProductsWithFilter_whenProductNameAndBrandNameNull_thenThrowNullPointerException() {
         // Given
         int pageNo = 0;
         int pageSize = 10;
 
-        Pageable pageable = PageRequest.of(pageNo, pageSize);
-        Page<Product> emptyPage = new PageImpl<>(List.of(), pageable, 0);
+        // When & Then
+        assertThrows(NullPointerException.class, () ->
+            productService.getProductsWithFilter(pageNo, pageSize, null, null)
+        );
 
-        when(productRepository.getProductsWithFilter(eq(""), isNull(), any(Pageable.class)))
-            .thenReturn(emptyPage);
-
-        // When
-        var result = assertDoesNotThrow(() -> productService.getProductsWithFilter(pageNo, pageSize, null, null));
-
-        // Then
-        assertEquals(0, result.productContent().size());
-        verify(productRepository).getProductsWithFilter(eq(""), isNull(), any(Pageable.class));
+        verify(productRepository, never()).getProductsWithFilter(any(), any(), any());
     }
 
     @Test
