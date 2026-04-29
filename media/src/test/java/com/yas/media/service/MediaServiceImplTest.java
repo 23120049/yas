@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -12,14 +13,17 @@ import static org.mockito.Mockito.when;
 
 import com.yas.commonlibrary.exception.NotFoundException;
 import com.yas.media.config.YasConfig;
+import com.yas.commonlibrary.mapper.BaseMapper;
 import com.yas.media.mapper.MediaVmMapper;
 import com.yas.media.model.Media;
 import com.yas.media.model.dto.MediaDto;
 import com.yas.media.repository.FileSystemRepository;
 import com.yas.media.repository.MediaRepository;
+import com.yas.media.viewmodel.MediaPostVm;
 import com.yas.media.viewmodel.MediaVm;
 import com.yas.media.viewmodel.NoFileMediaVm;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Optional;
@@ -29,6 +33,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.web.multipart.MultipartFile;
 
 @ExtendWith(MockitoExtension.class)
 class MediaServiceImplTest {
@@ -47,6 +53,66 @@ class MediaServiceImplTest {
 
     @InjectMocks
     private MediaServiceImpl mediaService;
+
+    @Test
+    void saveMedia_whenFileNameOverrideHasText_thenTrimAndPersistWithOverride() throws IOException {
+        byte[] content = new byte[] { 1, 2, 3 };
+        MultipartFile multipartFile = new MockMultipartFile(
+                "multipartFile",
+                "original.png",
+                "image/png",
+                content);
+        MediaPostVm vm = new MediaPostVm("Caption", multipartFile, "  override.png  ");
+
+        when(fileSystemRepository.persistFile(eq("override.png"), eq(content))).thenReturn("C:/tmp/override.png");
+        when(mediaRepository.save(any(Media.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Media saved = mediaService.saveMedia(vm);
+
+        assertNotNull(saved);
+        assertEquals("Caption", saved.getCaption());
+        assertEquals("image/png", saved.getMediaType());
+        assertEquals("override.png", saved.getFileName());
+        assertEquals("C:/tmp/override.png", saved.getFilePath());
+        verify(fileSystemRepository, times(1)).persistFile(eq("override.png"), eq(content));
+    }
+
+    @Test
+    void saveMedia_whenFileNameOverrideBlank_thenUsesOriginalFilename() throws IOException {
+        byte[] content = "x".getBytes();
+        MultipartFile multipartFile = new MockMultipartFile(
+                "multipartFile",
+                "original-name.jpg",
+                "image/jpeg",
+                content);
+        MediaPostVm vm = new MediaPostVm("Caption", multipartFile, "   ");
+
+        when(fileSystemRepository.persistFile(eq("original-name.jpg"), eq(content)))
+                .thenReturn("C:/tmp/original-name.jpg");
+        when(mediaRepository.save(any(Media.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Media saved = mediaService.saveMedia(vm);
+
+        assertEquals("original-name.jpg", saved.getFileName());
+        assertEquals("C:/tmp/original-name.jpg", saved.getFilePath());
+        verify(fileSystemRepository, times(1)).persistFile(eq("original-name.jpg"), eq(content));
+    }
+
+    @Test
+    void saveMedia_whenPersistFileThrowsIOException_thenPropagates() throws IOException {
+        byte[] content = "x".getBytes();
+        MultipartFile multipartFile = new MockMultipartFile(
+                "multipartFile",
+                "original.png",
+                "image/png",
+                content);
+        MediaPostVm vm = new MediaPostVm("Caption", multipartFile, null);
+
+        when(fileSystemRepository.persistFile(eq("original.png"), eq(content))).thenThrow(new IOException("boom"));
+
+        assertThrows(IOException.class, () -> mediaService.saveMedia(vm));
+        verify(mediaRepository, never()).save(any(Media.class));
+    }
 
     @Test
     void getMediaById_whenMediaExists_thenReturnMediaVmWithUrl() {
@@ -147,7 +213,7 @@ class MediaServiceImplTest {
         String filePath = "C:/tmp/banner.png";
         Media media = buildMedia(mediaId, fileName, "image/png", "banner");
         media.setFilePath(filePath);
-        InputStream content = new ByteArrayInputStream(new byte[] {1, 2, 3});
+        InputStream content = new ByteArrayInputStream(new byte[] { 1, 2, 3 });
 
         when(mediaRepository.findById(mediaId)).thenReturn(Optional.of(media));
         when(fileSystemRepository.getFile(filePath)).thenReturn(content);

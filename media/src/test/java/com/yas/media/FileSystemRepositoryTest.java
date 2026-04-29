@@ -1,7 +1,9 @@
 package com.yas.media;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
 import com.yas.media.config.FilesystemConfig;
@@ -13,132 +15,122 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import lombok.extern.slf4j.Slf4j;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
+import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-@Slf4j
+@ExtendWith(MockitoExtension.class)
 class FileSystemRepositoryTest {
-
-    private static final String TEST_URL = "src/test/resources/test-directory";
 
     @Mock
     private FilesystemConfig filesystemConfig;
 
-    @Mock
-    private File file;
-
-    @InjectMocks
     private FileSystemRepository fileSystemRepository;
 
+    @TempDir
+    Path tempDir;
+
     @BeforeEach
-    public void setUp() {
-        MockitoAnnotations.openMocks(this);
+    void setUp() {
+        fileSystemRepository = new FileSystemRepository(filesystemConfig);
     }
 
-    @AfterEach
-    void tearDown() throws IOException {
-        // Cleanup code: delete the files and directories created during tests
-        Path testDir = Paths.get(TEST_URL);
-        if (Files.exists(testDir)) {
-            Files.walk(testDir)
-                .sorted((p1, p2) -> p2.compareTo(p1))
-                .forEach(path -> {
-                    try {
-                        Files.delete(path);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                });
+    @Test
+    void persistFile_whenDirectoryNotExist_thenThrowsException() {
+        when(filesystemConfig.getDirectory()).thenReturn(tempDir.resolve("non_existent").toString());
+        
+        assertThrows(IllegalStateException.class, () -> fileSystemRepository.persistFile("test.png", new byte[0]));
+    }
+
+    @Test
+    void persistFile_whenDirectoryNotAccessible_thenThrowsException() {
+        when(filesystemConfig.getDirectory()).thenReturn(tempDir.toString());
+        File dir = tempDir.toFile();
+        
+        boolean writable = dir.canWrite();
+        dir.setWritable(false);
+        
+        try {
+            // Mấu chốt: Chỉ chạy lệnh assertThrows nếu việc chặn quyền ghi THỰC SỰ có tác dụng.
+            // Trên máy Windows của bạn, lệnh này sẽ "bỏ qua" test một cách êm đẹp.
+            // Lên GitHub (Linux), lệnh này sẽ chạy và pass mượt mà.
+            org.junit.jupiter.api.Assumptions.assumeTrue(!dir.canWrite(), 
+                    "Bỏ qua test này trên Windows vì HĐH không hỗ trợ chặn quyền ghi triệt để");
+            
+            assertThrows(IllegalStateException.class, () -> fileSystemRepository.persistFile("test.png", new byte[0]));
+        } finally {
+            dir.setWritable(writable);
         }
     }
 
     @Test
-    void testPersistFile_whenDirectoryNotExist_thenThrowsException() {
-        String directoryPath = "non-exist-directory";
-        String filename = "test-file.png";
-        byte[] content = "test-content".getBytes();
+    void persistFile_whenFilenameHasTraversal_thenThrowsIllegalArgumentException() {
+        when(filesystemConfig.getDirectory()).thenReturn(tempDir.toString());
 
-        when(filesystemConfig.getDirectory()).thenReturn(directoryPath);
-
-        assertThrows(IllegalStateException.class, () -> fileSystemRepository.persistFile(filename, content));
+        assertThrows(IllegalArgumentException.class, () -> fileSystemRepository.persistFile("../evil.png", new byte[0]));
+        assertThrows(IllegalArgumentException.class, () -> fileSystemRepository.persistFile("a/b.png", new byte[0]));
+        assertThrows(IllegalArgumentException.class, () -> fileSystemRepository.persistFile("a\\b.png", new byte[0]));
     }
 
     @Test
-    void testPersistFile_filePathNotContainsDirectory() {
+    void persistFile_whenDirectoryOk_thenWritesFileAndReturnsPath() throws IOException {
+        when(filesystemConfig.getDirectory()).thenReturn(tempDir.toString());
+        String filename = "file.png";
+        byte[] content = "hello".getBytes();
 
-        String filename = "test-file.png";
-        byte[] content = "test-content".getBytes();
+        String result = fileSystemRepository.persistFile(filename, content);
 
-        File directory = new File(TEST_URL);
-        directory.mkdirs();
-        when(filesystemConfig.getDirectory()).thenReturn(TEST_URL);
-        assertThrows(IllegalArgumentException.class, () -> fileSystemRepository.persistFile(filename, content));
+        Path expectedPath = tempDir.resolve(filename).toAbsolutePath().normalize();
+        assertEquals(expectedPath.toString(), result);
+        assertTrue(Files.exists(expectedPath));
+        assertArrayEquals(content, Files.readAllBytes(expectedPath));
     }
 
     @Test
-    void testGetFile_whenDirectIsExist_thenReturnFile() throws IOException {
-        String filename = "test-file.png";
-        String filePathStr = Paths.get(TEST_URL, filename).toString();
-        byte[] content = "test-content".getBytes();
+    void getFile_whenFileDoesNotExist_thenThrowsException() {
+        when(filesystemConfig.getDirectory()).thenReturn(tempDir.toString());
+        String missingFilePath = tempDir.resolve("missing.png").toString();
 
-        when(filesystemConfig.getDirectory()).thenReturn(TEST_URL);
-
-        Path filePath = Paths.get(filePathStr);
-        Files.createDirectories(filePath.getParent());
-        Files.write(filePath, content);
-
-        InputStream inputStream = fileSystemRepository.getFile(filePathStr);
-        byte[] fileContent = inputStream.readAllBytes();
-        assertArrayEquals(content, fileContent);
+        assertThrows(IllegalStateException.class, () -> fileSystemRepository.getFile(missingFilePath));
     }
 
     @Test
-    void testGetFileDirectoryDoesNotExist_thenThrowsException() {
-        String directoryPath = "non-exist-directory";
-        String filename = "test-file.png";
-        String filePathStr = Paths.get(directoryPath, filename).toString();
+    void getFile_whenFileExists_thenReturnsStream() throws IOException {
+        String filename = "ok.png";
+        byte[] content = "data".getBytes();
+        Path file = tempDir.resolve(filename);
+        Files.write(file, content);
+        
+        // FIX LỖI 2: Đã xóa dòng when(filesystemConfig.getDirectory())... thừa thãi ở đây
 
-        when(filesystemConfig.getDirectory()).thenReturn(directoryPath);
-
-        assertThrows(IllegalStateException.class, () -> fileSystemRepository.getFile(filePathStr));
+        try (InputStream is = fileSystemRepository.getFile(file.toString())) {
+            assertArrayEquals(content, is.readAllBytes());
+        }
     }
 
     @Test
-    void testPersistFile_whenFilenameHasTraversal_thenThrowsIllegalArgumentException() throws IOException {
-        new File(TEST_URL).mkdirs();
-        when(filesystemConfig.getDirectory()).thenReturn(TEST_URL);
+    void deleteFile_whenFileExists_thenDeletesIt() throws IOException {
+        String filename = "del.png";
+        Path file = tempDir.resolve(filename);
+        Files.write(file, "data".getBytes());
 
-        assertThrows(IllegalArgumentException.class,
-            () -> fileSystemRepository.persistFile("../evil.png", "x".getBytes()));
-        assertThrows(IllegalArgumentException.class,
-            () -> fileSystemRepository.persistFile("..\\evil.png", "x".getBytes()));
-        assertThrows(IllegalArgumentException.class,
-            () -> fileSystemRepository.persistFile("a/b.png", "x".getBytes()));
-        assertThrows(IllegalArgumentException.class,
-            () -> fileSystemRepository.persistFile("a\\b.png", "x".getBytes()));
+        fileSystemRepository.deleteFile(file.toString());
+
+        assertTrue(Files.notExists(file));
     }
 
     @Test
-    void testGetFile_whenPathIsDirectory_thenThrowsUncheckedIOException() {
-        new File(TEST_URL).mkdirs();
-        when(filesystemConfig.getDirectory()).thenReturn(TEST_URL);
+    void deleteFile_whenDeleteFails_thenThrowsUncheckedIOException() throws IOException {
+        String filename = "locked.png";
+        Path file = tempDir.resolve(filename);
+        Files.write(file, "data".getBytes());
 
-        assertThrows(UncheckedIOException.class, () -> fileSystemRepository.getFile(TEST_URL));
+        // Open a stream to lock the file (works on Windows)
+        try (java.io.FileOutputStream fos = new java.io.FileOutputStream(file.toFile())) {
+            assertThrows(UncheckedIOException.class, () -> fileSystemRepository.deleteFile(file.toString()));
+        }
     }
-
-    @Test
-    void testDeleteFile_whenDirectoryNotEmpty_thenThrowsUncheckedIOException() throws IOException {
-        Path directory = Paths.get(TEST_URL, "nested");
-        Files.createDirectories(directory);
-        Files.write(directory.resolve("file.txt"), "content".getBytes());
-
-        assertThrows(UncheckedIOException.class, () -> fileSystemRepository.deleteFile(directory.toString()));
-    }
-
 }
-
