@@ -5,6 +5,7 @@ import jakarta.validation.ConstraintValidatorContext;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import javax.imageio.ImageIO;
+import lombok.SneakyThrows;
 import org.springframework.web.multipart.MultipartFile;
 
 
@@ -20,6 +21,7 @@ public class FileTypeValidator implements ConstraintValidator<ValidFileType, Mul
     }
 
     @Override
+    @SneakyThrows
     public boolean isValid(MultipartFile file, ConstraintValidatorContext context) {
         if (file == null || file.getContentType() == null) {
             context.disableDefaultConstraintViolation();

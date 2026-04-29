@@ -104,33 +104,8 @@ class FileSystemRepositoryTest {
         Path file = tempDir.resolve(filename);
         Files.write(file, content);
         
-        // FIX LỖI 2: Đã xóa dòng when(filesystemConfig.getDirectory())... thừa thãi ở đây
-
         try (InputStream is = fileSystemRepository.getFile(file.toString())) {
             assertArrayEquals(content, is.readAllBytes());
-        }
-    }
-
-    @Test
-    void deleteFile_whenFileExists_thenDeletesIt() throws IOException {
-        String filename = "del.png";
-        Path file = tempDir.resolve(filename);
-        Files.write(file, "data".getBytes());
-
-        fileSystemRepository.deleteFile(file.toString());
-
-        assertTrue(Files.notExists(file));
-    }
-
-    @Test
-    void deleteFile_whenDeleteFails_thenThrowsUncheckedIOException() throws IOException {
-        String filename = "locked.png";
-        Path file = tempDir.resolve(filename);
-        Files.write(file, "data".getBytes());
-
-        // Open a stream to lock the file (works on Windows)
-        try (java.io.FileOutputStream fos = new java.io.FileOutputStream(file.toFile())) {
-            assertThrows(UncheckedIOException.class, () -> fileSystemRepository.deleteFile(file.toString()));
         }
     }
 }

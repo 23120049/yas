@@ -4,11 +4,11 @@ import com.yas.media.config.FilesystemConfig;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
 
@@ -33,6 +33,7 @@ public class FileSystemRepository {
         return filePath.toString();
     }
 
+    @SneakyThrows
     public InputStream getFile(String filePath) {
         Path path = Paths.get(filePath);
         if (!Files.exists(path)) {
@@ -42,17 +43,7 @@ public class FileSystemRepository {
         try {
             return Files.newInputStream(path);
         } catch (IOException e) {
-            throw new UncheckedIOException("Failed to read file: " + filePath, e);
-        }
-    }
-
-    public void deleteFile(String filePath) {
-        Path path = Paths.get(filePath);
-        try {
-            Files.deleteIfExists(path);
-            log.info("File deleted: {}", filePath);
-        } catch (IOException e) {
-            throw new UncheckedIOException("Failed to delete file: " + filePath, e);
+            throw new RuntimeException("Failed to read file: " + filePath, e);
         }
     }
 

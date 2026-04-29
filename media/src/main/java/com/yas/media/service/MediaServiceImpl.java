@@ -5,6 +5,7 @@ import com.yas.media.config.YasConfig;
 import com.yas.media.mapper.MediaVmMapper;
 import com.yas.media.model.Media;
 import com.yas.media.model.dto.MediaDto;
+import com.yas.media.model.dto.MediaDto.MediaDtoBuilder;
 import com.yas.media.repository.FileSystemRepository;
 import com.yas.media.repository.MediaRepository;
 import com.yas.media.utils.StringUtils;
@@ -12,6 +13,7 @@ import com.yas.media.viewmodel.MediaPostVm;
 import com.yas.media.viewmodel.MediaVm;
 import com.yas.media.viewmodel.NoFileMediaVm;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
@@ -49,19 +51,18 @@ public class MediaServiceImpl implements MediaService {
 
     @Override
     public void removeMedia(Long id) {
-        Media media = mediaRepository.findById(id).orElse(null);
-        if (media == null) {
+        NoFileMediaVm noFileMediaVm = mediaRepository.findByIdWithoutFileInReturn(id);
+        if (noFileMediaVm == null) {
             throw new NotFoundException(String.format("Media %s is not found", id));
         }
-        fileSystemRepository.deleteFile(media.getFilePath());
-        mediaRepository.delete(media);
+        mediaRepository.deleteById(id);
     }
 
     @Override
     public MediaVm getMediaById(Long id) {
         NoFileMediaVm noFileMediaVm = mediaRepository.findByIdWithoutFileInReturn(id);
         if (noFileMediaVm == null) {
-            throw new NotFoundException(String.format("Media %d is not found", id));
+            return null;
         }
         String url = getMediaUrl(noFileMediaVm.id(), noFileMediaVm.fileName());
 
@@ -76,14 +77,17 @@ public class MediaServiceImpl implements MediaService {
 
     @Override
     public MediaDto getFile(Long id, String fileName) {
+
+        MediaDtoBuilder builder = MediaDto.builder();
+
         Media media = mediaRepository.findById(id).orElse(null);
         if (media == null || !fileName.equalsIgnoreCase(media.getFileName())) {
-            throw new NotFoundException(String.format("Media %d with fileName %s is not found", id, fileName));
+            return builder.build();
         }
         MediaType mediaType = MediaType.valueOf(media.getMediaType());
         InputStream fileContent = fileSystemRepository.getFile(media.getFilePath());
 
-        return MediaDto.builder()
+        return builder
             .content(fileContent)
             .mediaType(mediaType)
             .build();
