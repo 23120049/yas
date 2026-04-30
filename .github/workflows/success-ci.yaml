@@ -9,7 +9,7 @@ jobs:
   success:
     name: success
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     if: always()
 
     steps:
@@ -18,15 +18,31 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           attempt=0
-          max_attempts=30
+          max_attempts=20
 
           while [ $attempt -lt $max_attempts ]; do
+            # Collect into a valid JSON array for safe processing
             CHECKS=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/check-runs" \
               --paginate \
-              --jq '.check_runs[] | select(.name != "success") | {name: .name, status: .status, conclusion: .conclusion}')
+              --jq '[.check_runs[] | select(.name != "success")]')
 
+            # Merge paginated arrays into one (--paginate returns multiple arrays)
+            CHECKS=$(echo "$CHECKS" | jq -s '[.[] | .[]]')
+
+            TOTAL=$(echo "$CHECKS" | jq 'length')
+            echo "Found $TOTAL check-run(s) (excluding self)..."
+
+            # If no other checks are registered yet, keep waiting
+            if [ "$TOTAL" -eq 0 ]; then
+              echo "No other checks found yet. Waiting for them to register..."
+              sleep 60
+              attempt=$((attempt+1))
+              continue
+            fi
+
+            # Check for any non-terminal statuses
             STILL_RUNNING=$(echo "$CHECKS" | jq -r '
-              select(
+              .[] | select(
                 .status == "in_progress" or
                 .status == "queued" or
                 .status == "waiting" or
@@ -34,7 +50,7 @@ jobs:
               ) | .name')
 
             if [ -z "$STILL_RUNNING" ]; then
-              echo "All workflows completed."
+              echo "All $TOTAL check(s) have completed."
               break
             fi
 
@@ -51,10 +67,10 @@ jobs:
           fi
 
           echo "--- RESULTS ---"
-          echo "$CHECKS" | jq -r '"\(.name): \(.conclusion)"'
+          echo "$CHECKS" | jq -r '.[] | "\(.name): \(.conclusion)"'
 
           FAILED=$(echo "$CHECKS" | jq -r '
-            select(
+            .[] | select(
               .conclusion != "success" and
               .conclusion != "skipped" and
               .conclusion != "neutral"
