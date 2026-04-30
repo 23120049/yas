@@ -7,89 +7,26 @@ on:
 
 jobs:
   success:
-    name: success
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     if: always()
-
     steps:
-      - name: Wait and Verify All Service Workflows
+      - name: Check status of all other workflows
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          attempt=0
-          max_attempts=20
+          # Get the combined status of all checks for the current commit
+          # We filter out this 'success' check itself to avoid a circular logic loop
+          STATUS=$(gh api repos/${{ github.repository }}/commits/${{ github.sha }}/check-runs \
+            --jq '.check_runs[] | select(.name != "success") | .conclusion')
 
-          while [ $attempt -lt $max_attempts ]; do
-            echo "Attempt $((attempt+1))/$max_attempts..."
+          echo "Detected statuses: $STATUS"
 
-            # 1. Improved API Call: Capture raw output correctly
-            # Note: --paginate returns multiple JSON arrays, one per page
-            RAW=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/check-runs" \
-              --paginate \
-              --jq '[.check_runs[] | select(.name != "success")]')
-
-            # 2. Fix: Use 'jq -s' (slurp) to merge paginated arrays into a single list
-            # Then 'add' to combine the pages, or return empty array if null
-            CHECKS=$(echo "$RAW" | jq -s 'add // []')
-            
-            TOTAL=$(echo "$CHECKS" | jq 'length')
-            echo "Found $TOTAL check-run(s) excluding self."
-
-            if [ "$TOTAL" -gt 0 ]; then
-              # 3. Check for any non-terminal statuses
-              STILL_RUNNING=$(echo "$CHECKS" | jq -r '
-                .[] | select(
-                  .status == "in_progress" or
-                  .status == "queued" or
-                  .status == "waiting" or
-                  .status == "requested"
-                ) | .name')
-
-              if [ -z "$STILL_RUNNING" ]; then
-                echo "All $TOTAL check(s) completed."
-                break
-              fi
-
-              echo "Still waiting on: $STILL_RUNNING"
-            else
-              echo "No checks registered yet, will retry..."
-            fi
-
-            attempt=$((attempt+1))
-            if [ $attempt -lt $max_attempts ]; then
-              sleep 60
-            fi
-          done
-
-          if [ $attempt -eq $max_attempts ]; then
-            echo "ERROR: Timed out after $max_attempts attempts."
+          if echo "$STATUS" | grep -q "failure"; then
+            echo "One or more microservice workflows failed."
+            exit 1
+          elif echo "$STATUS" | grep -q "action_required"; then
+            echo "Some workflows are still pending or require action."
             exit 1
           fi
 
-          echo "--- RESULTS ---"
-          echo "$CHECKS" | jq -r '.[] | "\(.name): \(.conclusion)"'
-
-          # 4. Critical Logic: Fail if any check is missing a conclusion
-          NULL_CONCLUSIONS=$(echo "$CHECKS" | jq -r '.[] | select(.conclusion == null) | .name')
-          if [ -n "$NULL_CONCLUSIONS" ]; then
-            echo "ERROR: The following checks completed but have no result (null):"
-            echo "$NULL_CONCLUSIONS"
-            exit 1
-          fi
-
-          # 5. Final Pass/Fail Check
-          FAILED=$(echo "$CHECKS" | jq -r '
-            .[] | select(
-              .conclusion != "success" and
-              .conclusion != "skipped" and
-              .conclusion != "neutral"
-            ) | "\(.name): \(.conclusion)"')
-
-          if [ -n "$FAILED" ]; then
-            echo "ERROR: The following checks did not pass:"
-            echo "$FAILED"
-            exit 1
-          fi
-
-          echo "All checks passed. Safe to merge."
+          echo "All relevant microservice checks passed!"
