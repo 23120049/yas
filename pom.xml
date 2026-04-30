@@ -14,7 +14,7 @@
     <packaging>pom</packaging>
     <name>yas</name>
 
-    <modules>
+  #  <modules>
         <module>common-library</module>
         <module>backoffice-bff</module>
         <module>cart</module>
