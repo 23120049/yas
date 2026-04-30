@@ -2,7 +2,8 @@ name: sampledata service ci
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - '*'
     paths:
       - "sampledata/**"
       - ".github/workflows/actions/action.yaml"

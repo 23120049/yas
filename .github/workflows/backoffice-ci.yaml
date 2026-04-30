@@ -2,7 +2,8 @@ name: backoffice service ci
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - '*'
     paths:
       - "backoffice/**"
       - ".github/workflows/actions/action.yaml"

@@ -2,7 +2,8 @@ name: common-library ci
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - '*'
     paths:
       - "common-library/**"
       - ".github/workflows/actions/action.yaml"

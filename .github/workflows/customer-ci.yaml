@@ -2,7 +2,8 @@ name: customer service ci
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - '*'
     paths:
       - "customer/**"
       - ".github/workflows/actions/action.yaml"

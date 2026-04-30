@@ -2,7 +2,8 @@ name: storefront service ci
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - '*'
     paths:
       - "storefront/**"
       - ".github/workflows/actions/action.yaml"

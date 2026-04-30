@@ -2,7 +2,8 @@ name: tax service ci
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - '*'
     paths:
       - "tax/**"
       - ".github/workflows/actions/action.yaml"

@@ -2,7 +2,8 @@ name: order service ci
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - '*'
     paths:
       - "order/**"
       - ".github/workflows/actions/action.yaml"
