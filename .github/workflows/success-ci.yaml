@@ -19,21 +19,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          GATEKEEPER_WORKFLOW="global-ci-gatekeeper.yml"  # <-- set to this file's filename
+          GATEKEEPER_WORKFLOW="global-ci-gatekeeper.yml"
           HEAD_SHA="${{ github.event.pull_request.head.sha }}"
           REPO="${{ github.repository }}"
 
           attempt=0
           max_attempts=20
 
-          # Step 1: Give other workflows a head-start before polling
           echo "Waiting 30s for other workflows to register..."
           sleep 30
 
           while [ $attempt -lt $max_attempts ]; do
             echo "--- Attempt $((attempt+1))/$max_attempts ---"
 
-            # Fetch all check-runs for this commit, exclude self
+            # Lấy tất cả check-runs trừ chính nó
             CHECKS=$(gh api "repos/$REPO/commits/$HEAD_SHA/check-runs" \
               --paginate \
               --jq "[.check_runs[] | select(.name != \"success\")]" \
@@ -49,8 +48,7 @@ jobs:
               continue
             fi
 
-            # Step 2: Also check for workflow runs still queued but not yet
-            # registered as check-runs (covers the registration race)
+            # Kiểm tra workflow vẫn đang ở trạng thái chờ đăng ký
             PENDING_RUNS=$(gh api "repos/$REPO/actions/runs" \
               --field head_sha="$HEAD_SHA" \
               --field event=pull_request \
@@ -60,14 +58,13 @@ jobs:
               ) | .name' 2>/dev/null || true)
 
             if [ -n "$PENDING_RUNS" ]; then
-              echo "Workflow runs still pending (not yet check-runs):"
-              echo "$PENDING_RUNS"
+              echo "Workflow runs still pending: $PENDING_RUNS"
               sleep 60
               attempt=$((attempt+1))
               continue
             fi
 
-            # Step 3: Fail immediately if any completed check has already failed
+            # Thất bại sớm nếu có check đã xong nhưng bị Fail
             ALREADY_FAILED=$(echo "$CHECKS" | jq -r '
               .[] | select(
                 .status == "completed" and
@@ -82,7 +79,7 @@ jobs:
               exit 1
             fi
 
-            # Step 4: Check if any registered check-runs are still running
+            # Kiểm tra xem còn cái nào đang chạy không
             STILL_RUNNING=$(echo "$CHECKS" | jq -r '
               .[] | select(
                 .status == "in_progress" or
@@ -91,12 +88,21 @@ jobs:
                 .status == "requested"
               ) | .name')
 
-            if [ -n "$STILL_RUNNING" ]; then
-              echo "Still waiting on:"
-              echo "$STILL_RUNNING"
-              sleep 60
-              attempt=$((attempt+1))
-              continue
+            if [ -z "$STILL_RUNNING" ]; then
+              echo "All $TOTAL check(s) completed."
+              break
             fi
 
+            echo "Still waiting on: $STILL_RUNNING"
+            sleep 60
+            attempt=$((attempt+1))
+          done  # <--- BẠN THIẾU DÒNG NÀY
+
+          if [ $attempt -eq $max_attempts ]; then
+            echo "ERROR: Timed out waiting for checks to complete."
+            exit 1
+          fi
+
+          echo "--- FINAL RESULTS ---"
+          echo "$CHECKS" | jq -r '.[] | "\(.name): \(.conclusion)"'
           echo "All checks passed. Safe to merge."
