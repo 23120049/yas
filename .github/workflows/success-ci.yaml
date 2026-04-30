@@ -1,8 +1,7 @@
 name: Global CI Gatekeeper
-
 on:
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
   workflow_dispatch:
 
 jobs:
@@ -12,39 +11,63 @@ jobs:
     permissions:
       checks: read
       contents: read
-      actions: read # Thêm quyền này để đảm bảo đọc được trạng thái workflow
+      actions: read
     timeout-minutes: 20
     if: always()
-
     steps:
       - name: Wait and Verify All Service Workflows
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          GATEKEEPER_WORKFLOW="global-ci-gatekeeper.yml"  # <-- set to this file's filename
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          REPO="${{ github.repository }}"
+
           attempt=0
           max_attempts=20
 
-          while [ $attempt -lt $max_attempts ]; do
-            # Collect into a valid JSON array for safe processing
-            CHECKS=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/check-runs" \
-              --paginate \
-              --jq '[.check_runs[] | select(.name != "success")]')
+          # Step 1: Give other workflows a head-start before polling
+          echo "Waiting 30s for other workflows to register..."
+          sleep 30
 
-            # Merge paginated arrays into one (--paginate returns multiple arrays)
-            CHECKS=$(echo "$CHECKS" | jq -s '[.[] | .[]]')
+          while [ $attempt -lt $max_attempts ]; do
+            echo "--- Attempt $((attempt+1))/$max_attempts ---"
+
+            # Fetch all check-runs for this commit, exclude self
+            CHECKS=$(gh api "repos/$REPO/commits/$HEAD_SHA/check-runs" \
+              --paginate \
+              --jq "[.check_runs[] | select(.name != \"success\")]" \
+              | jq -s '[.[] | .[]]')
 
             TOTAL=$(echo "$CHECKS" | jq 'length')
             echo "Found $TOTAL check-run(s) (excluding self)..."
 
-            # If no other checks are registered yet, keep waiting
             if [ "$TOTAL" -eq 0 ]; then
-              echo "No other checks found yet. Waiting for them to register..."
+              echo "No other checks found yet. Waiting..."
               sleep 60
               attempt=$((attempt+1))
               continue
             fi
 
-            # Check for any non-terminal statuses
+            # Step 2: Also check for workflow runs still queued but not yet
+            # registered as check-runs (covers the registration race)
+            PENDING_RUNS=$(gh api "repos/$REPO/actions/runs" \
+              --field head_sha="$HEAD_SHA" \
+              --field event=pull_request \
+              --jq '.workflow_runs[] | select(
+                .path != ".github/workflows/'"$GATEKEEPER_WORKFLOW"'" and
+                (.status == "queued" or .status == "in_progress" or .status == "requested" or .status == "waiting")
+              ) | .name' 2>/dev/null || true)
+
+            if [ -n "$PENDING_RUNS" ]; then
+              echo "Workflow runs still pending (not yet check-runs):"
+              echo "$PENDING_RUNS"
+              sleep 60
+              attempt=$((attempt+1))
+              continue
+            fi
+
+            # Step 3: Check if any registered check-runs are still running
             STILL_RUNNING=$(echo "$CHECKS" | jq -r '
               .[] | select(
                 .status == "in_progress" or
@@ -53,16 +76,16 @@ jobs:
                 .status == "requested"
               ) | .name')
 
-            if [ -z "$STILL_RUNNING" ]; then
-              echo "All $TOTAL check(s) have completed."
-              break
+            if [ -n "$STILL_RUNNING" ]; then
+              echo "Still waiting on:"
+              echo "$STILL_RUNNING"
+              sleep 60
+              attempt=$((attempt+1))
+              continue
             fi
 
-            echo "Still waiting on:"
-            echo "$STILL_RUNNING"
-            echo "Attempt $((attempt+1))/$max_attempts — retrying in 60s..."
-            sleep 60
-            attempt=$((attempt+1))
+            echo "All $TOTAL check(s) completed."
+            break
           done
 
           if [ $attempt -eq $max_attempts ]; then
