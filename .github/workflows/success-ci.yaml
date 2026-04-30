@@ -32,46 +32,46 @@ jobs:
           while [ $attempt -lt $max_attempts ]; do
             echo "--- Attempt $((attempt+1))/$max_attempts ---"
 
-            # Lấy tất cả check-runs trừ chính nó
-            CHECKS=$(gh api "repos/$REPO/commits/$HEAD_SHA/check-runs" \
-              --paginate \
-              --jq "[.check_runs[] | select(.name != \"success\")]" \
-              | jq -s '[.[] | .[]]')
-
+            # Lấy Check Runs (Sửa lại jq để tránh mảng lồng nhau gây lỗi)
+            RAW_CHECKS=$(gh api "repos/$REPO/commits/$HEAD_SHA/check-runs" --paginate)
+            CHECKS=$(echo "$RAW_CHECKS" | jq -c '[.check_runs[] | select(.name != "success")]')
+            
             TOTAL=$(echo "$CHECKS" | jq 'length')
             echo "Found $TOTAL check-run(s) (excluding self)..."
 
-            if [ "$TOTAL" -eq 0 ]; then
-              echo "No other checks found yet. Waiting..."
-              sleep 60
-              attempt=$((attempt+1))
-              continue
-            fi
-
-            # Kiểm tra workflow vẫn đang ở trạng thái chờ đăng ký
-            PENDING_RUNS=$(gh api "repos/$REPO/actions/runs" \
-              --field head_sha="$HEAD_SHA" \
-              --field event=pull_request \
-              --jq '.workflow_runs[] | select(
-                .path != ".github/workflows/'"$GATEKEEPER_WORKFLOW"'" and
-                (.status == "queued" or .status == "in_progress" or .status == "requested" or .status == "waiting")
-              ) | .name' 2>/dev/null || true)
+            # 1. Kiểm tra Workflow Runs (Sửa API path để tránh 404)
+            # Dùng endpoint /actions/runs của repo để quét theo SHA
+            PENDING_RUNS=$(gh api "repos/$REPO/actions/runs?head_sha=$HEAD_SHA&event=pull_request" \
+              --jq ".workflow_runs[] | select(
+                (.path | endswith(\"$GATEKEEPER_WORKFLOW\") | not) and
+                (.status == \"queued\" or .status == \"in_progress\" or .status == \"requested\" or .status == \"waiting\")
+              ) | .name")
 
             if [ -n "$PENDING_RUNS" ]; then
               echo "Workflow runs still pending: $PENDING_RUNS"
-              sleep 60
-              attempt=$((attempt+1))
-              continue
+            else
+              # 2. Nếu không có Pending, kiểm tra trạng thái các Check Runs đã đăng ký
+              STILL_RUNNING=$(echo "$CHECKS" | jq -r '
+                .[] | select(
+                  .status == "in_progress" or .status == "queued" or .status == "waiting" or .status == "requested"
+                ) | .name')
+
+              if [ -z "$STILL_RUNNING" ]; then
+                if [ "$TOTAL" -gt 0 ]; then
+                   echo "All $TOTAL check(s) completed."
+                   break
+                else
+                   echo "Waiting for other workflows to register..."
+                fi
+              else
+                echo "Still waiting on: $STILL_RUNNING"
+              fi
             fi
 
-            # Thất bại sớm nếu có check đã xong nhưng bị Fail
+            # 3. Kiểm tra Fail sớm (Giữ nguyên logic bảo mật)
             ALREADY_FAILED=$(echo "$CHECKS" | jq -r '
-              .[] | select(
-                .status == "completed" and
-                .conclusion != "success" and
-                .conclusion != "skipped" and
-                .conclusion != "neutral"
-              ) | "\(.name): \(.conclusion)"')
+              .[] | select(.status == "completed" and (.conclusion != "success" and .conclusion != "skipped" and .conclusion != "neutral"))
+              | "\(.name): \(.conclusion)"')
 
             if [ -n "$ALREADY_FAILED" ]; then
               echo "ERROR: The following check(s) failed — aborting early:"
@@ -79,29 +79,9 @@ jobs:
               exit 1
             fi
 
-            # Kiểm tra xem còn cái nào đang chạy không
-            STILL_RUNNING=$(echo "$CHECKS" | jq -r '
-              .[] | select(
-                .status == "in_progress" or
-                .status == "queued" or
-                .status == "waiting" or
-                .status == "requested"
-              ) | .name')
-
-            if [ -z "$STILL_RUNNING" ]; then
-              echo "All $TOTAL check(s) completed."
-              break
-            fi
-
-            echo "Still waiting on: $STILL_RUNNING"
-            sleep 60
             attempt=$((attempt+1))
-          done  # <--- BẠN THIẾU DÒNG NÀY
-
-          if [ $attempt -eq $max_attempts ]; then
-            echo "ERROR: Timed out waiting for checks to complete."
-            exit 1
-          fi
+            [ $attempt -lt $max_attempts ] && sleep 60
+          done
 
           echo "--- FINAL RESULTS ---"
           echo "$CHECKS" | jq -r '.[] | "\(.name): \(.conclusion)"'
