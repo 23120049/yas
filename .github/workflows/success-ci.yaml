@@ -9,6 +9,10 @@ jobs:
   success:
     name: success
     runs-on: ubuntu-latest
+    permissions:
+      checks: read
+      contents: read
+      actions: read # Thêm quyền này để đảm bảo đọc được trạng thái workflow
     timeout-minutes: 20
     if: always()
 
