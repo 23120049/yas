@@ -67,7 +67,22 @@ jobs:
               continue
             fi
 
-            # Step 3: Check if any registered check-runs are still running
+            # Step 3: Fail immediately if any completed check has already failed
+            ALREADY_FAILED=$(echo "$CHECKS" | jq -r '
+              .[] | select(
+                .status == "completed" and
+                .conclusion != "success" and
+                .conclusion != "skipped" and
+                .conclusion != "neutral"
+              ) | "\(.name): \(.conclusion)"')
+
+            if [ -n "$ALREADY_FAILED" ]; then
+              echo "ERROR: The following check(s) failed — aborting early:"
+              echo "$ALREADY_FAILED"
+              exit 1
+            fi
+
+            # Step 4: Check if any registered check-runs are still running
             STILL_RUNNING=$(echo "$CHECKS" | jq -r '
               .[] | select(
                 .status == "in_progress" or
@@ -83,30 +98,5 @@ jobs:
               attempt=$((attempt+1))
               continue
             fi
-
-            echo "All $TOTAL check(s) completed."
-            break
-          done
-
-          if [ $attempt -eq $max_attempts ]; then
-            echo "ERROR: Timed out waiting for checks to complete."
-            exit 1
-          fi
-
-          echo "--- RESULTS ---"
-          echo "$CHECKS" | jq -r '.[] | "\(.name): \(.conclusion)"'
-
-          FAILED=$(echo "$CHECKS" | jq -r '
-            .[] | select(
-              .conclusion != "success" and
-              .conclusion != "skipped" and
-              .conclusion != "neutral"
-            ) | "\(.name): \(.conclusion)"')
-
-          if [ -n "$FAILED" ]; then
-            echo "ERROR: The following checks did not pass:"
-            echo "$FAILED"
-            exit 1
-          fi
 
           echo "All checks passed. Safe to merge."
