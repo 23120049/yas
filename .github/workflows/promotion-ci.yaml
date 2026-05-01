@@ -138,6 +138,7 @@ jobs:
           name: Promotion-Coverage-Report
           path: "promotion/target/site/jacoco/**"
       - name: Add coverage report to PR
+        id: coverage
         uses: madrapps/jacoco-report@v1.6.1
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
         with:
@@ -148,4 +149,14 @@ jobs:
           fail-on-coverage-low: true
           title: 'Promotion Coverage Report'
           update-comment: true
+
+      - name: Fail if coverage is below threshold
+        if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
+        run: |
+          OVERALL=${{ steps.coverage.outputs.coverage-overall }}
+          CHANGED=${{ steps.coverage.outputs.coverage-changed-files }}
+          if awk "BEGIN {exit !($OVERALL < 70)}" || awk "BEGIN {exit !($CHANGED < 70)}"; then
+            echo "::error::Coverage below threshold! Overall: ${OVERALL}%, Changed files: ${CHANGED}%"
+            exit 1
+          fi
 
