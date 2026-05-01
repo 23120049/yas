@@ -2,7 +2,8 @@ name: inventory service ci
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - '*'
     paths:
       - "inventory/**"
       - ".github/workflows/actions/action.yaml"

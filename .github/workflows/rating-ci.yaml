@@ -2,7 +2,8 @@ name: rating service ci
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - '*'
     paths:
       - "rating/**"
       - ".github/workflows/actions/action.yaml"

@@ -2,7 +2,8 @@ name: promotion service ci
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - '*'
     paths:
       - "promotion/**"
       - ".github/workflows/actions/action.yaml"

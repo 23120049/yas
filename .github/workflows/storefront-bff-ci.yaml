@@ -2,7 +2,8 @@ name: storefront-bff service ci
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - '*'
     paths:
       - "storefront-bff/**"
       - ".github/workflows/actions/action.yaml"
