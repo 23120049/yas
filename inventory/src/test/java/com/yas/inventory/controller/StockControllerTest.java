@@ -5,6 +5,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.ArgumentMatchers.any;
 
 import org.springframework.boot.security.oauth2.server.resource.autoconfigure.servlet.OAuth2ResourceServerAutoConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -118,4 +121,62 @@ class StockControllerTest {
 
     }
 
+    @Test
+    void testGetStocks_whenOptionalParamsMissing_thenReturnStocks() throws Exception {
+        Long warehouseId = 1L;
+        StockVm stockVm = new StockVm(1L, 1L, "Product", "SKU", 100L, 10L, 1L);
+        List<StockVm> stocks = List.of(stockVm);
+
+        given(stockService.getStocksByWarehouseIdAndProductNameAndSku(warehouseId, null, null))
+            .willReturn(stocks);
+
+        this.mockMvc.perform(get("/backoffice/stocks")
+                .param("warehouseId", String.valueOf(warehouseId))
+                .contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$[0].id").value(1L));
+    }
+
+    @Test
+    void testGetStocks_whenNoStocksFound_thenReturnEmptyList() throws Exception {
+        Long warehouseId = 1L;
+        given(stockService.getStocksByWarehouseIdAndProductNameAndSku(warehouseId, "NonExistent", "NE"))
+            .willReturn(List.of());
+
+        this.mockMvc.perform(get("/backoffice/stocks")
+                .param("warehouseId", String.valueOf(warehouseId))
+                .param("productName", "NonExistent")
+                .param("productSku", "NE")
+                .contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$").isEmpty());
+    }
+
+    @Test
+    void testAddProductIntoWarehouse_whenStockExists_thenReturnBadRequest() throws Exception {
+        StockPostVm stockPostVm = new StockPostVm(1L, 10L);
+        List<StockPostVm> stockPostVms = List.of(stockPostVm);
+
+        doThrow(new com.yas.commonlibrary.exception.StockExistingException("Stock exists"))
+            .when(stockService).addProductIntoWarehouse(any());
+
+        mockMvc.perform(post("/backoffice/stocks")
+                .contentType("application/json")
+                .content(objectWriter.writeValueAsString(stockPostVms)))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void testUpdateProductQuantity_whenInvalidQuantity_thenReturnBadRequest() throws Exception {
+        StockQuantityUpdateVm stockQuantityUpdateVm = new StockQuantityUpdateVm(List.of());
+
+        doThrow(new com.yas.commonlibrary.exception.BadRequestException("Invalid quantity"))
+            .when(stockService).updateProductQuantityInStock(any());
+
+        mockMvc.perform(MockMvcRequestBuilders.put("/backoffice/stocks")
+                .contentType("application/json")
+                .content(objectWriter.writeValueAsString(stockQuantityUpdateVm)))
+            .andExpect(status().isBadRequest());
+    }
 }
