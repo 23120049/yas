@@ -4,8 +4,12 @@ import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.ArgumentMatchers.any;
 
 import org.springframework.boot.security.oauth2.server.resource.autoconfigure.servlet.OAuth2ResourceServerAutoConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -341,4 +345,87 @@ class WarehouseControllerTest {
             .andExpect(status().isBadRequest());
     }
 
+    @Test
+    void testDeleteWarehouse_whenWarehouseExists_thenReturn204() throws Exception {
+        Long warehouseId = 1L;
+        doNothing().when(warehouseService).delete(warehouseId);
+
+        this.mockMvc.perform(delete("/backoffice/warehouses/{id}", warehouseId))
+            .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void testDeleteWarehouse_whenWarehouseNotFound_thenReturn404() throws Exception {
+        Long warehouseId = 1L;
+        doThrow(new com.yas.commonlibrary.exception.NotFoundException("Warehouse not found"))
+            .when(warehouseService).delete(warehouseId);
+
+        this.mockMvc.perform(delete("/backoffice/warehouses/{id}", warehouseId))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void testGetWarehouse_whenWarehouseNotFound_thenReturn404() throws Exception {
+        Long warehouseId = 1L;
+        given(warehouseService.findById(warehouseId))
+            .willThrow(new com.yas.commonlibrary.exception.NotFoundException("Warehouse not found"));
+
+        this.mockMvc.perform(get("/backoffice/warehouses/{id}", warehouseId))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void testUpdateWarehouse_whenWarehouseNotFound_thenReturn404() throws Exception {
+        Long warehouseId = 1L;
+        WarehousePostVm warehousePostVm = WarehousePostVm.builder()
+            .name("name")
+            .contactName("contactName")
+            .phone("12345678")
+            .addressLine1("addressLine1")
+            .city("city")
+            .districtId(1L)
+            .stateOrProvinceId(1L)
+            .countryId(1L)
+            .build();
+
+        doThrow(new com.yas.commonlibrary.exception.NotFoundException("Warehouse not found"))
+            .when(warehouseService).update(warehousePostVm, warehouseId);
+
+        String request = objectWriter.writeValueAsString(warehousePostVm);
+
+        this.mockMvc.perform(put("/backoffice/warehouses/{id}", warehouseId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(request))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void testGetPageableWarehouses_whenDefaultParams_thenReturnPagedWarehouses() throws Exception {
+        int pageNo = 0;
+        int pageSize = 10;
+        int totalElements = 5;
+
+        List<WarehouseGetVm> warehouseContent
+            = List.of(new WarehouseGetVm(1L, "A1"), new WarehouseGetVm(2L, "A2"));
+        WarehouseListGetVm warehouseListGetVm
+            = new WarehouseListGetVm(warehouseContent, pageNo, pageSize, totalElements, 1, true);
+
+        given(warehouseService.getPageableWarehouses(pageNo, pageSize)).willReturn(warehouseListGetVm);
+
+        this.mockMvc.perform(get("/backoffice/warehouses/paging")
+                .contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.pageNo").value(pageNo))
+            .andExpect(jsonPath("$.pageSize").value(pageSize));
+    }
+
+    @Test
+    void testListWarehouses_whenNoWarehousesExist_thenReturnEmptyList() throws Exception {
+        given(warehouseService.findAllWarehouses()).willReturn(List.of());
+
+        this.mockMvc.perform(get("/backoffice/warehouses")
+                .contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$").isEmpty());
+    }
 }
