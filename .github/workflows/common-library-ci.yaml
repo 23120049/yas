@@ -127,5 +127,6 @@ jobs:
           token: ${{secrets.GITHUB_TOKEN}}
           min-coverage-overall: 70
           min-coverage-changed-files: 70
+          fail-on-coverage-low: true
           title: 'Common Library Coverage Report'
           update-comment: true
