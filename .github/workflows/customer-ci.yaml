@@ -99,7 +99,9 @@ jobs:
         with:
           context: ./customer
           push: true
-          tags: ghcr.io/23120049/yas-customer:latest  
+          tags: |
+              ghcr.io/23120049/yas-customer:latest  
+              ghcr.io/23120049/yas-customer:${{ github.sha }}
   Test:
     runs-on: ubuntu-latest
     needs: Build

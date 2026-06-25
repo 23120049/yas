@@ -99,7 +99,9 @@ jobs:
         with:
           context: ./location
           push: true
-          tags: ghcr.io/23120049/yas-location:latest  
+          tags: |
+              ghcr.io/23120049/yas-location:latest  
+              ghcr.io/23120049/yas-location:${{ github.sha }}
   
   Test:
     runs-on: ubuntu-latest

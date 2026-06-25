@@ -3,6 +3,7 @@ name: order service ci
 on:
   push:
     branches:
+    branches:
       - '*'
     paths:
       - "order/**"
@@ -99,7 +100,9 @@ jobs:
         with:
           context: ./order
           push: true
-          tags: ghcr.io/23120049/yas-order:latest  
+          tags: |
+              ghcr.io/23120049/yas-order:latest  
+              ghcr.io/23120049/yas-order:${{ github.sha }}
           
   Test:
     runs-on: ubuntu-latest

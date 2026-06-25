@@ -99,8 +99,9 @@ jobs:
         with:
           context: ./payment
           push: true
-          tags: ghcr.io/23120049/yas-payment:latest  
-          
+          tags: |
+              ghcr.io/23120049/yas-payment:latest  
+              ghcr.io/23120049/yas-payment:${{ github.sha }}
   Test:
     runs-on: ubuntu-latest
     needs: Build

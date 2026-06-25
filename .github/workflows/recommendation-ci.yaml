@@ -97,8 +97,9 @@ jobs:
         with:
           context: ./recommendation
           push: true
-          tags: ghcr.io/23120049/yas-recommendation:latest  
-          
+          tags: |
+              ghcr.io/23120049/yas-recommendation:latest  
+              ghcr.io/23120049/yas-recommendation:${{ github.sha }}
   Test:
     runs-on: ubuntu-latest
     needs: Build

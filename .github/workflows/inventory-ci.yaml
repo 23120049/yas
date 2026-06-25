@@ -99,7 +99,9 @@ jobs:
         with:
           context: ./inventory
           push: true
-          tags: ghcr.io/23120049/yas-inventory:latest  
+          tags: | 
+              ghcr.io/23120049/yas-inventory:latest  
+              ghcr.io/23120049/yas-inventory:${{ github.sha }}
   
   Test:
     runs-on: ubuntu-latest

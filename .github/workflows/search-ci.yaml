@@ -99,9 +99,10 @@ jobs:
         with:
           context: ./search
           push: true
-          tags: ghcr.io/23120049/yas-search:latest
-
-  Test:
+          tags: |
+              ghcr.io/23120049/yas-search:latest
+              ghcr.io/23120049/yas-search:${{ github.sha }}
+  Test: 
     runs-on: ubuntu-latest
     needs: Build
     env:

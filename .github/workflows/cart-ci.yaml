@@ -99,7 +99,9 @@ jobs:
         with:
           context: ./cart
           push: true
-          tags: ghcr.io/23120049/yas-cart:latest  
+          tags: | 
+              ghcr.io/23120049/yas-cart:latest  
+              ghcr.io/23120049/yas-cart:${{ github.sha }}
   Test:
     runs-on: ubuntu-latest
     needs: Build

@@ -100,8 +100,9 @@ jobs:
         with:
           context: ./storefront-bff
           push: true
-          tags: ghcr.io/23120049/yas-storefront-bff:latest
-
+          tags: |
+              ghcr.io/23120049/yas-storefront-bff:latest
+              ghcr.io/23120049/yas-storefront-bff:${{ github.sha }}
   Test:
     runs-on: ubuntu-latest
     needs: Build

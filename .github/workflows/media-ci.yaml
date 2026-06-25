@@ -99,8 +99,9 @@ jobs:
         with:
           context: ./media
           push: true
-          tags: ghcr.io/23120049/yas-media:latest  
-          
+          tags: |
+              ghcr.io/23120049/yas-media:latest  
+              ghcr.io/23120049/yas-media:${{ github.sha }}
   Test:
     runs-on: ubuntu-latest
     needs: Build

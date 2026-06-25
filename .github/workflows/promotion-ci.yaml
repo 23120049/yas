@@ -99,8 +99,9 @@ jobs:
         with:
           context: ./promotion
           push: true
-          tags: ghcr.io/23120049/yas-promotion:latest  
-          
+          tags: |
+              ghcr.io/23120049/yas-promotion:latest  
+              ghcr.io/23120049/yas-promotion:${{ github.sha }}
   Test:
     runs-on: ubuntu-latest
     needs: Build

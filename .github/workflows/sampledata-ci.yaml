@@ -99,8 +99,9 @@ jobs:
         with:
           context: ./sampledata
           push: true
-          tags: ghcr.io/23120049/yas-sampledata:latest  
-          
+          tags: |
+              ghcr.io/23120049/yas-sampledata:latest  
+              ghcr.io/23120049/yas-sampledata:${{ github.sha }}
   Test:
     runs-on: ubuntu-latest
     needs: Build

@@ -91,7 +91,9 @@ jobs:
         with:
           context: ./backoffice-bff
           push: true
-          tags: ghcr.io/23120049/yas-backoffice-bff:latest
+          tags: |
+              ghcr.io/23120049/yas-backoffice-bff:latest
+              ghcr.io/23120049/yas-backoffice-bff:${{ github.sha }}
   Test:
     runs-on: ubuntu-latest
     needs: Build

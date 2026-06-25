@@ -99,7 +99,9 @@ jobs:
         with:
           context: ./webhook
           push: true
-          tags: ghcr.io/23120049/yas-webhook:latest  
+          tags: |
+              ghcr.io/23120049/yas-webhook:latest  
+              ghcr.io/23120049/yas-webhook:${{ github.sha }}
           
   Test:
     runs-on: ubuntu-latest

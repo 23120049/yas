@@ -99,8 +99,9 @@ jobs:
         with:
           context: ./product
           push: true
-          tags: ghcr.io/23120049/yas-product:latest  
-          
+          tags: |
+              ghcr.io/23120049/yas-product:latest  
+              ghcr.io/23120049/yas-product:${{ github.sha }}
   Test:
     runs-on: ubuntu-latest
     needs: Build

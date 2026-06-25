@@ -99,8 +99,9 @@ jobs:
         with:
           context: ./rating
           push: true
-          tags: ghcr.io/23120049/yas-rating:latest  
-          
+          tags: |
+              ghcr.io/23120049/yas-rating:latest  
+              ghcr.io/23120049/yas-rating:${{ github.sha }}
   Test:
     runs-on: ubuntu-latest
     needs: Build

@@ -99,8 +99,9 @@ jobs:
         with:
           context: ./payment-paypal
           push: true
-          tags: ghcr.io/23120049/yas-payment-paypal:latest  
-          
+          tags: |
+              ghcr.io/23120049/yas-payment-paypal:latest  
+              ghcr.io/23120049/yas-payment-paypal:${{ github.sha }}
   Test:
     runs-on: ubuntu-latest
     needs: Build
