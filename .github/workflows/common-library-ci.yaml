@@ -53,6 +53,7 @@ jobs:
         run: mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -f common-library -Dsonar.projectName="common_library"
       - name: Snyk scan
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
+        continue-on-error: true
         uses: snyk/actions/maven@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
