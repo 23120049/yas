@@ -1,0 +1,71 @@
+name: Developer Build & Test Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Chọn service muốn deploy thử'
+        required: true
+        type: choice
+        options:
+          - product
+          - cart
+          - order
+          - customer
+          - inventory
+          - tax
+          - media
+          - search
+          - storefront-bff
+          - storefront-ui
+          - backoffice-bff
+          - backoffice-ui
+          - swagger-ui
+      image_tag:
+        description: 'Nhập Image Tag muốn deploy '
+        required: true
+        type: string
+
+jobs:
+  developer_build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout yas-gitops Repo
+        uses: actions/checkout@v4
+        with:
+          repository: '23120049/yas-gitops'
+          token: ${{ secrets.GITOPS_TOKEN }}
+
+      - name: Backup Current Tag to Rollback State
+        run: |
+          TARGET_FILE="values/dev/dynamic-tags/image-tags.yaml"
+          BACKUP_FILE="rollback_state.yaml"
+          SERVICE="${{ github.event.inputs.service }}"
+          
+          # Đọc tag hiện tại từ target file và lưu vào rollback_state.yaml
+          if [ -f "$TARGET_FILE" ]; then
+            CURRENT_TAG=$(yq eval ".$SERVICE" $TARGET_FILE)
+            if [ "$CURRENT_TAG" != "null" ]; then
+              yq eval -i ".$SERVICE = \"$CURRENT_TAG\"" $BACKUP_FILE
+              echo "Backed up $SERVICE with tag $CURRENT_TAG"
+            fi
+          fi
+
+      - name: Update New Image Tag for Dev
+        run: |
+          TARGET_FILE="values/dev/dynamic-tags/image-tags.yaml"
+          SERVICE="${{ github.event.inputs.service }}"
+          NEW_TAG="${{ github.event.inputs.image_tag }}"
+          
+          # Đảm bảo thư mục tồn tại và cập nhật tag mới
+          mkdir -p $(dirname $TARGET_FILE)
+          yq eval -i ".$SERVICE = \"$NEW_TAG\"" $TARGET_FILE
+          echo "Updated $SERVICE to new tag $NEW_TAG"
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add values/dev/dynamic-tags/image-tags.yaml rollback_state.yaml
+          git commit -m "chore(dev): test deploy ${{ github.event.inputs.service }} with tag ${{ github.event.inputs.image_tag }}" || echo "No changes to commit"
+          git push origin main
