@@ -8,21 +8,28 @@ on:
         required: true
         type: choice
         options:
-          - product
           - cart
-          - order
+          - media
           - customer
           - inventory
-          - tax
-          - media
+          - order
+          - payment
+          - payment-paypal
+          - product
+          - promotion
+          - rating
+          - recommendation
           - search
+          - tax
           - storefront-bff
-          - storefront-ui
           - backoffice-bff
-          - backoffice-ui
-          - swagger-ui
+          - webhook
+          - location
+          - sampledata
+          - storefront
+          - backoffice
       image_tag:
-        description: 'Nhập Image Tag muốn deploy '
+        description: 'Nhập Image Tag muốn deploy'
         required: true
         type: string
 
@@ -36,17 +43,31 @@ jobs:
           repository: '23120049/yas-gitops'
           token: ${{ secrets.GITOPS_TOKEN }}
 
+      - name: Set YQ Path Policy based on Service type
+        id: set-path
+        run: |
+          SERVICE="${{ github.event.inputs.service }}"
+          
+          # Xác định service thuộc nhóm ui hay backend để cấu hình câu lệnh yq chính xác
+          if [ "$SERVICE" = "storefront" ] || [ "$SERVICE" = "backoffice" ]; then
+            echo "YQ_PATH=.ui.\"$SERVICE\".image.tag" >> $GITHUB_ENV
+          else
+            echo "YQ_PATH=.backend.\"$SERVICE\".image.tag" >> $GITHUB_ENV
+          fi
+
       - name: Backup Current Tag to Rollback State
         run: |
           TARGET_FILE="values/dev/dynamic-tags/image-tags.yaml"
           BACKUP_FILE="rollback_state.yaml"
           SERVICE="${{ github.event.inputs.service }}"
           
-          # Đọc tag hiện tại từ target file và lưu vào rollback_state.yaml
+          # Sử dụng cấu trúc lưu rollback_state phẳng cho dễ quản lý: "service: tag"
           if [ -f "$TARGET_FILE" ]; then
-            CURRENT_TAG=$(yq eval ".$SERVICE" $TARGET_FILE)
-            if [ "$CURRENT_TAG" != "null" ]; then
-              yq eval -i ".$SERVICE = \"$CURRENT_TAG\"" $BACKUP_FILE
+            CURRENT_TAG=$(yq eval "${{ env.YQ_PATH }}" $TARGET_FILE)
+            if [ "$CURRENT_TAG" != "null" ] && [ -n "$CURRENT_TAG" ]; then
+              # Khởi tạo file backup nếu chưa tồn tại
+              touch $BACKUP_FILE
+              yq eval -i ".\"$SERVICE\" = \"$CURRENT_TAG\"" $BACKUP_FILE
               echo "Backed up $SERVICE with tag $CURRENT_TAG"
             fi
           fi
@@ -54,18 +75,23 @@ jobs:
       - name: Update New Image Tag for Dev
         run: |
           TARGET_FILE="values/dev/dynamic-tags/image-tags.yaml"
-          SERVICE="${{ github.event.inputs.service }}"
           NEW_TAG="${{ github.event.inputs.image_tag }}"
           
-          # Đảm bảo thư mục tồn tại và cập nhật tag mới
+          # Đảm bảo thư mục tồn tại và cập nhật tag mới vào đúng cấu trúc lồng nhau
           mkdir -p $(dirname $TARGET_FILE)
-          yq eval -i ".$SERVICE = \"$NEW_TAG\"" $TARGET_FILE
-          echo "Updated $SERVICE to new tag $NEW_TAG"
+          yq eval -i "${{ env.YQ_PATH }} = \"$NEW_TAG\"" $TARGET_FILE
+          echo "Updated ${{ github.event.inputs.service }} to new tag $NEW_TAG"
 
       - name: Commit and Push Changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add values/dev/dynamic-tags/image-tags.yaml rollback_state.yaml
+          
+          # Chỉ add file nếu chúng thực sự tồn tại và có thay đổi
+          git add values/dev/dynamic-tags/image-tags.yaml
+          if [ -f "rollback_state.yaml" ]; then
+            git add rollback_state.yaml
+          fi
+          
           git commit -m "chore(dev): test deploy ${{ github.event.inputs.service }} with tag ${{ github.event.inputs.image_tag }}" || echo "No changes to commit"
           git push origin main

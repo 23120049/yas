@@ -18,13 +18,33 @@ jobs:
           TARGET_FILE="values/dev/dynamic-tags/image-tags.yaml"
           BACKUP_FILE="rollback_state.yaml"
           
-          if [ -f "$BACKUP_FILE" ]; then
-            # Sử dụng yq để merge hoặc ghi đè các tag từ file backup sang file target
-            yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' $TARGET_FILE $BACKUP_FILE > temp.yaml
-            mv temp.yaml $TARGET_FILE
+          if [ -f "$BACKUP_FILE" ] && [ -f "$TARGET_FILE" ]; then
+            echo "Processing rollback..."
+            
+            # Đọc danh sách tất cả các key (tên service) có trong file backup phẳng
+            SERVICES=$(yq eval 'keys | .[]' $BACKUP_FILE)
+            
+            for SERVICE in $SERVICES; do
+              # Lấy tag cũ đã lưu từ file backup
+              OLD_TAG=$(yq eval ".\"$SERVICE\"" $BACKUP_FILE)
+              
+              if [ "$OLD_TAG" != "null" ] && [ -n "$OLD_TAG" ]; then
+                # Xác định đường dẫn yq lồng nhau dựa theo phân loại ui hoặc backend
+                if [ "$SERVICE" = "storefront" ] || [ "$SERVICE" = "backoffice" ]; then
+                  YQ_PATH=".ui.\"$SERVICE\".image.tag"
+                else
+                  YQ_PATH=".backend.\"$SERVICE\".image.tag"
+                fi
+                
+                # Cập nhật tag cũ về lại cấu trúc chính xác của image-tags.yaml
+                yq eval -i "${YQ_PATH} = \"$OLD_TAG\"" $TARGET_FILE
+                echo "Restored service [$SERVICE] back to tag [$OLD_TAG]"
+              fi
+            done
+            
             echo "Rollback state applied successfully."
           else
-            echo "No rollback_state.yaml found! Cannot perform rollback."
+            echo "Error: Either rollback_state.yaml or image-tags.yaml is missing!"
             exit 1
           fi
 
@@ -32,6 +52,7 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
           git add values/dev/dynamic-tags/image-tags.yaml
           git commit -m "chore(dev): rollback image tags to previous state" || echo "No changes to commit"
           git push origin main
