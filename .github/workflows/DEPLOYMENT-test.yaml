@@ -29,7 +29,7 @@ on:
           - storefront
           - backoffice
       image_tag:
-        description: 'Nhập Image Tag muốn deploy'
+        description: 'Nhập image tag muốn deploy vào dev'
         required: true
         type: string
 
@@ -37,61 +37,33 @@ jobs:
   developer_build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout yas-gitops Repo
+      - name: Checkout yas repository
+        uses: actions/checkout@v4
+
+      - name: Install yq
+        run: .github/scripts/install-yq.sh
+
+      - name: Checkout yas-gitops repository
         uses: actions/checkout@v4
         with:
           repository: '23120049/yas-gitops'
           token: ${{ secrets.GITOPS_TOKEN }}
+          path: yas-gitops-repo
 
-      - name: Set YQ Path Policy based on Service type
-        id: set-path
-        run: |
-          SERVICE="${{ github.event.inputs.service }}"
-          
-          # Xác định service thuộc nhóm ui hay backend để cấu hình câu lệnh yq chính xác
-          if [ "$SERVICE" = "storefront" ] || [ "$SERVICE" = "backoffice" ]; then
-            echo "YQ_PATH=.ui.\"$SERVICE\".image.tag" >> $GITHUB_ENV
-          else
-            echo "YQ_PATH=.backend.\"$SERVICE\".image.tag" >> $GITHUB_ENV
-          fi
+      - name: Update dev image tag and save rollback state
+        env:
+          GITOPS_DIR: yas-gitops-repo
+          ENVIRONMENT: dev
+          SERVICE: ${{ github.event.inputs.service }}
+          IMAGE_TAG: ${{ github.event.inputs.image_tag }}
+          ROLLBACK_FILE: yas-gitops-repo/rollback_state.yaml
+        run: .github/scripts/update-gitops-image-tag.sh
 
-      - name: Backup Current Tag to Rollback State
+      - name: Commit and push GitOps changes
+        working-directory: yas-gitops-repo
         run: |
-          TARGET_FILE="values/dev/dynamic-tags/image-tags.yaml"
-          BACKUP_FILE="rollback_state.yaml"
-          SERVICE="${{ github.event.inputs.service }}"
-          
-          # Sử dụng cấu trúc lưu rollback_state phẳng cho dễ quản lý: "service: tag"
-          if [ -f "$TARGET_FILE" ]; then
-            CURRENT_TAG=$(yq eval "${{ env.YQ_PATH }}" $TARGET_FILE)
-            if [ "$CURRENT_TAG" != "null" ] && [ -n "$CURRENT_TAG" ]; then
-              # Khởi tạo file backup nếu chưa tồn tại
-              touch $BACKUP_FILE
-              yq eval -i ".\"$SERVICE\" = \"$CURRENT_TAG\"" $BACKUP_FILE
-              echo "Backed up $SERVICE with tag $CURRENT_TAG"
-            fi
-          fi
-
-      - name: Update New Image Tag for Dev
-        run: |
-          TARGET_FILE="values/dev/dynamic-tags/image-tags.yaml"
-          NEW_TAG="${{ github.event.inputs.image_tag }}"
-          
-          # Đảm bảo thư mục tồn tại và cập nhật tag mới vào đúng cấu trúc lồng nhau
-          mkdir -p $(dirname $TARGET_FILE)
-          yq eval -i "${{ env.YQ_PATH }} = \"$NEW_TAG\"" $TARGET_FILE
-          echo "Updated ${{ github.event.inputs.service }} to new tag $NEW_TAG"
-
-      - name: Commit and Push Changes
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # Chỉ add file nếu chúng thực sự tồn tại và có thay đổi
-          git add values/dev/dynamic-tags/image-tags.yaml
-          if [ -f "rollback_state.yaml" ]; then
-            git add rollback_state.yaml
-          fi
-          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add values/dev/dynamic-tags rollback_state.yaml
           git commit -m "chore(dev): test deploy ${{ github.event.inputs.service }} with tag ${{ github.event.inputs.image_tag }}" || echo "No changes to commit"
           git push origin main
