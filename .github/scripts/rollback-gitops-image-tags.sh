@@ -24,7 +24,7 @@ for SERVICE in $SERVICES; do
   fi
 
   SERVICE="$SERVICE" IMAGE_TAG="$OLD_TAG" ENVIRONMENT="$ENVIRONMENT" GITOPS_DIR="$GITOPS_DIR" \
-    "$(dirname "$0")/update-gitops-image-tag.sh"
+    bash "$(dirname "$0")/update-gitops-image-tag.sh"
 done
 
 echo "Rollback state applied to ${ENVIRONMENT}."

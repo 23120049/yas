@@ -11,7 +11,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install yq
-        run: .github/scripts/install-yq.sh
+        run: bash .github/scripts/install-yq.sh
 
       - name: Checkout yas-gitops repository
         uses: actions/checkout@v4
@@ -24,7 +24,7 @@ jobs:
         env:
           GITOPS_DIR: yas-gitops-repo
           ENVIRONMENT: dev
-        run: .github/scripts/rollback-gitops-image-tags.sh
+        run: bash .github/scripts/rollback-gitops-image-tags.sh
 
       - name: Commit and push GitOps rollback
         working-directory: yas-gitops-repo

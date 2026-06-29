@@ -41,7 +41,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install yq
-        run: .github/scripts/install-yq.sh
+        run: bash .github/scripts/install-yq.sh
 
       - name: Checkout yas-gitops repository
         uses: actions/checkout@v4
@@ -57,7 +57,7 @@ jobs:
           SERVICE: ${{ github.event.inputs.service }}
           IMAGE_TAG: ${{ github.event.inputs.image_tag }}
           ROLLBACK_FILE: yas-gitops-repo/rollback_state.yaml
-        run: .github/scripts/update-gitops-image-tag.sh
+        run: bash .github/scripts/update-gitops-image-tag.sh
 
       - name: Commit and push GitOps changes
         working-directory: yas-gitops-repo

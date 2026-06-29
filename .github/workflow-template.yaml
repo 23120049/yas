@@ -56,7 +56,6 @@ jobs:
         with:
           context: ./{{SERVICE_NAME}}
           push: true
-          tags: ghcr.io/nashtech-garage/yas-{{SERVICE_NAME}}:latest
-
-
-          test 
+          tags: |
+            ghcr.io/23120049/yas-{{SERVICE_NAME}}:latest
+            ghcr.io/23120049/yas-{{SERVICE_NAME}}:${{ github.sha }}

@@ -5,7 +5,6 @@ on:
     branches:
       - main
     paths:
-      # Kích hoạt khi có thay đổi trong bất kỳ thư mục nào của 20 service
       - 'cart/**'
       - 'media/**'
       - 'customer/**'
@@ -29,17 +28,21 @@ on:
   release:
     types: [published]
 
+env:
+  SERVICES: >-
+    cart media customer inventory order payment payment-paypal product promotion
+    rating recommendation search tax storefront-bff backoffice-bff webhook
+    location sampledata storefront backoffice
+
 jobs:
-  # ================= JOB 1: DEPLOY DEV (KÍCH HOẠT KHI PUSH MAIN) =================
   deploy-dev:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Source Code
+      - name: Checkout yas repository
         uses: actions/checkout@v4
 
-      # Định nghĩa đầy đủ filter paths cho 20 dịch vụ
-      - name: Check Changed Services
+      - name: Detect changed services
         id: filter
         uses: dorny/paths-filter@v3
         with:
@@ -66,157 +69,99 @@ jobs:
             backoffice: 'backoffice/**'
 
       - name: Install yq
-        run: |
-          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
-          sudo chmod +x /usr/local/bin/yq
+        run: bash .github/scripts/install-yq.sh
 
-      - name: Checkout GitOps Repo
+      - name: Checkout yas-gitops repository
         uses: actions/checkout@v4
         with:
           repository: '23120049/yas-gitops'
           token: ${{ secrets.GITOPS_TOKEN }}
-          path: 'yas-gitops-repo'
+          path: yas-gitops-repo
 
-      # Cập nhật thông minh cho môi trường DEV (sử dụng commit SHA làm NEW_TAG)
-      - name: Update Dev Image Tags Config
+      - name: Update dev image tags
+        env:
+          GITOPS_DIR: yas-gitops-repo
+          ENVIRONMENT: dev
+          IMAGE_TAG: ${{ github.sha }}
+          CART_CHANGED: ${{ steps.filter.outputs.cart }}
+          MEDIA_CHANGED: ${{ steps.filter.outputs.media }}
+          CUSTOMER_CHANGED: ${{ steps.filter.outputs.customer }}
+          INVENTORY_CHANGED: ${{ steps.filter.outputs.inventory }}
+          ORDER_CHANGED: ${{ steps.filter.outputs.order }}
+          PAYMENT_CHANGED: ${{ steps.filter.outputs.payment }}
+          PAYMENT_PAYPAL_CHANGED: ${{ steps.filter.outputs.payment_paypal }}
+          PRODUCT_CHANGED: ${{ steps.filter.outputs.product }}
+          PROMOTION_CHANGED: ${{ steps.filter.outputs.promotion }}
+          RATING_CHANGED: ${{ steps.filter.outputs.rating }}
+          RECOMMENDATION_CHANGED: ${{ steps.filter.outputs.recommendation }}
+          SEARCH_CHANGED: ${{ steps.filter.outputs.search }}
+          TAX_CHANGED: ${{ steps.filter.outputs.tax }}
+          STOREFRONT_BFF_CHANGED: ${{ steps.filter.outputs.storefront_bff }}
+          BACKOFFICE_BFF_CHANGED: ${{ steps.filter.outputs.backoffice_bff }}
+          WEBHOOK_CHANGED: ${{ steps.filter.outputs.webhook }}
+          LOCATION_CHANGED: ${{ steps.filter.outputs.location }}
+          SAMPLEDATA_CHANGED: ${{ steps.filter.outputs.sampledata }}
+          STOREFRONT_CHANGED: ${{ steps.filter.outputs.storefront }}
+          BACKOFFICE_CHANGED: ${{ steps.filter.outputs.backoffice }}
         run: |
-          cd yas-gitops-repo
-          TARGET_FILE="values/dev/dynamic-tags/image-tags.yaml"
-          NEW_TAG="${{ github.sha }}"
-          
-          echo "==== Tiến hành cập nhật tag cho môi trường Dev ===="
-          
-          # Nhóm Backend (18 Services)
-          if [ "${{ steps.filter.outputs.cart }}" == 'true' ]; then yq -i ".backend.cart.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.cart"; fi
-          if [ "${{ steps.filter.outputs.media }}" == 'true' ]; then yq -i ".backend.media.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.media"; fi
-          if [ "${{ steps.filter.outputs.customer }}" == 'true' ]; then yq -i ".backend.customer.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.customer"; fi
-          if [ "${{ steps.filter.outputs.inventory }}" == 'true' ]; then yq -i ".backend.inventory.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.inventory"; fi
-          if [ "${{ steps.filter.outputs.order }}" == 'true' ]; then yq -i ".backend.order.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.order"; fi
-          if [ "${{ steps.filter.outputs.payment }}" == 'true' ]; then yq -i ".backend.payment.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.payment"; fi
-          if [ "${{ steps.filter.outputs.payment_paypal }}" == 'true' ]; then yq -i ".backend.\"payment-paypal\".image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.payment-paypal"; fi
-          if [ "${{ steps.filter.outputs.product }}" == 'true' ]; then yq -i ".backend.product.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.product"; fi
-          if [ "${{ steps.filter.outputs.promotion }}" == 'true' ]; then yq -i ".backend.promotion.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.promotion"; fi
-          if [ "${{ steps.filter.outputs.rating }}" == 'true' ]; then yq -i ".backend.rating.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.rating"; fi
-          if [ "${{ steps.filter.outputs.recommendation }}" == 'true' ]; then yq -i ".backend.recommendation.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.recommendation"; fi
-          if [ "${{ steps.filter.outputs.search }}" == 'true' ]; then yq -i ".backend.search.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.search"; fi
-          if [ "${{ steps.filter.outputs.tax }}" == 'true' ]; then yq -i ".backend.tax.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.tax"; fi
-          if [ "${{ steps.filter.outputs.storefront_bff }}" == 'true' ]; then yq -i ".backend.\"storefront-bff\".image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.storefront-bff"; fi
-          if [ "${{ steps.filter.outputs.backoffice_bff }}" == 'true' ]; then yq -i ".backend.\"backoffice-bff\".image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.backoffice-bff"; fi
-          if [ "${{ steps.filter.outputs.webhook }}" == 'true' ]; then yq -i ".backend.webhook.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.webhook"; fi
-          if [ "${{ steps.filter.outputs.location }}" == 'true' ]; then yq -i ".backend.location.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.location"; fi
-          if [ "${{ steps.filter.outputs.sampledata }}" == 'true' ]; then yq -i ".backend.sampledata.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.sampledata"; fi
-          
-          # Nhóm UI (2 Services)
-          if [ "${{ steps.filter.outputs.storefront }}" == 'true' ]; then yq -i ".ui.storefront.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: ui.storefront"; fi
-          if [ "${{ steps.filter.outputs.backoffice }}" == 'true' ]; then yq -i ".ui.backoffice.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: ui.backoffice"; fi
+          set -euo pipefail
+          for SERVICE in $SERVICES; do
+            VAR_NAME="$(echo "${SERVICE}_CHANGED" | tr '[:lower:]-' '[:upper:]_')"
+            if [ "${!VAR_NAME:-false}" = "true" ]; then
+              SERVICE="$SERVICE" bash .github/scripts/update-gitops-image-tag.sh
+            fi
+          done
 
-      - name: Commit & Push to yas-gitops (Dev)
+      - name: Commit and push dev GitOps changes
+        working-directory: yas-gitops-repo
         run: |
-          cd yas-gitops-repo
-          git config --global user.name "GitHub Actions Bot"
-          git config --global user.email "actions@github.com"
-          git add values/dev/dynamic-tags/image-tags.yaml
-          
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          git add values/dev/dynamic-tags
           if ! git diff --cached --exit-code; then
             git commit -m "chore(dev): auto-update dynamic image tags [commit: ${{ github.sha }}]"
             git push origin main
           else
-            echo "Không có service nào thay đổi, bỏ qua commit."
+            echo "No dev image tag changes to commit."
           fi
 
-  # ================= JOB 2: DEPLOY STAGING (KÍCH HOẠT KHI TẠO RELEASE) =================
   deploy-staging:
     if: github.event_name == 'release'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Source Code
+      - name: Checkout yas repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      # Bộ lọc kiểm tra thay đổi cho Staging khi có phiên bản release mới
-      - name: Check Changed Services since last release
-        id: filter
-        uses: dorny/paths-filter@v3
-        with:
-          base: ${{ github.event.before }}
-          filters: |
-            cart: 'cart/**'
-            media: 'media/**'
-            customer: 'customer/**'
-            inventory: 'inventory/**'
-            order: 'order/**'
-            payment: 'payment/**'
-            payment_paypal: 'payment-paypal/**'
-            product: 'product/**'
-            promotion: 'promotion/**'
-            rating: 'rating/**'
-            recommendation: 'recommendation/**'
-            search: 'search/**'
-            tax: 'tax/**'
-            storefront_bff: 'storefront-bff/**'
-            backoffice_bff: 'backoffice-bff/**'
-            webhook: 'webhook/**'
-            location: 'location/**'
-            sampledata: 'sampledata/**'
-            storefront: 'storefront/**'
-            backoffice: 'backoffice/**'
 
       - name: Install yq
-        run: |
-          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
-          sudo chmod +x /usr/local/bin/yq
+        run: bash .github/scripts/install-yq.sh
 
-      - name: Checkout GitOps Repo
+      - name: Checkout yas-gitops repository
         uses: actions/checkout@v4
         with:
           repository: '23120049/yas-gitops'
           token: ${{ secrets.GITOPS_TOKEN }}
-          path: 'yas-gitops-repo'
+          path: yas-gitops-repo
 
-      # Cập nhật thông minh cho môi trường STAGING (sử dụng Release Tag làm NEW_TAG)
-      - name: Update Staging Image Tags Config
+      - name: Update staging image tags to latest
+        env:
+          GITOPS_DIR: yas-gitops-repo
+          ENVIRONMENT: staging
+          IMAGE_TAG: latest
         run: |
-          cd yas-gitops-repo
-          TARGET_FILE="values/staging/dynamic-tags/image-tags.yaml"
-          NEW_TAG="${{ github.event.release.tag_name }}"
-          
-          echo "==== Tiến hành cập nhật tag cho môi trường Staging ===="
-          
-          # Nhóm Backend (18 Services)
-          if [ "${{ steps.filter.outputs.cart }}" == 'true' ]; then yq -i ".backend.cart.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.cart"; fi
-          if [ "${{ steps.filter.outputs.media }}" == 'true' ]; then yq -i ".backend.media.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.media"; fi
-          if [ "${{ steps.filter.outputs.customer }}" == 'true' ]; then yq -i ".backend.customer.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.customer"; fi
-          if [ "${{ steps.filter.outputs.inventory }}" == 'true' ]; then yq -i ".backend.inventory.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.inventory"; fi
-          if [ "${{ steps.filter.outputs.order }}" == 'true' ]; then yq -i ".backend.order.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.order"; fi
-          if [ "${{ steps.filter.outputs.payment }}" == 'true' ]; then yq -i ".backend.payment.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.payment"; fi
-          if [ "${{ steps.filter.outputs.payment_paypal }}" == 'true' ]; then yq -i ".backend.\"payment-paypal\".image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.payment-paypal"; fi
-          if [ "${{ steps.filter.outputs.product }}" == 'true' ]; then yq -i ".backend.product.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.product"; fi
-          if [ "${{ steps.filter.outputs.promotion }}" == 'true' ]; then yq -i ".backend.promotion.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.promotion"; fi
-          if [ "${{ steps.filter.outputs.rating }}" == 'true' ]; then yq -i ".backend.rating.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.rating"; fi
-          if [ "${{ steps.filter.outputs.recommendation }}" == 'true' ]; then yq -i ".backend.recommendation.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.recommendation"; fi
-          if [ "${{ steps.filter.outputs.search }}" == 'true' ]; then yq -i ".backend.search.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.search"; fi
-          if [ "${{ steps.filter.outputs.tax }}" == 'true' ]; then yq -i ".backend.tax.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.tax"; fi
-          if [ "${{ steps.filter.outputs.storefront_bff }}" == 'true' ]; then yq -i ".backend.\"storefront-bff\".image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.storefront-bff"; fi
-          if [ "${{ steps.filter.outputs.backoffice_bff }}" == 'true' ]; then yq -i ".backend.\"backoffice-bff\".image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.backoffice-bff"; fi
-          if [ "${{ steps.filter.outputs.webhook }}" == 'true' ]; then yq -i ".backend.webhook.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.webhook"; fi
-          if [ "${{ steps.filter.outputs.location }}" == 'true' ]; then yq -i ".backend.location.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.location"; fi
-          if [ "${{ steps.filter.outputs.sampledata }}" == 'true' ]; then yq -i ".backend.sampledata.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: backend.sampledata"; fi
-          
-          # Nhóm UI (2 Services)
-          if [ "${{ steps.filter.outputs.storefront }}" == 'true' ]; then yq -i ".ui.storefront.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: ui.storefront"; fi
-          if [ "${{ steps.filter.outputs.backoffice }}" == 'true' ]; then yq -i ".ui.backoffice.image.tag = \"$NEW_TAG\"" $TARGET_FILE; echo "Updated: ui.backoffice"; fi
+          set -euo pipefail
+          for SERVICE in $SERVICES; do
+            SERVICE="$SERVICE" bash .github/scripts/update-gitops-image-tag.sh
+          done
 
-      - name: Commit & Push to yas-gitops (Staging)
+      - name: Commit and push staging GitOps changes
+        working-directory: yas-gitops-repo
         run: |
-          cd yas-gitops-repo
-          git config --global user.name "GitHub Actions Bot"
-          git config --global user.email "actions@github.com"
-          git add values/staging/dynamic-tags/image-tags.yaml
-          
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          git add values/staging/dynamic-tags
           if ! git diff --cached --exit-code; then
-            git commit -m "chore(staging): auto-update dynamic image tags [release: ${{ github.event.release.tag_name }}]"
+            git commit -m "chore(staging): update image tags to latest for release ${{ github.event.release.tag_name }}"
             git push origin main
           else
-            echo "Không có service nào thay đổi trong bản release này, bỏ qua commit."
+            echo "No staging image tag changes to commit."
           fi
