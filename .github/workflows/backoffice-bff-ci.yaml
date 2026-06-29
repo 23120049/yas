@@ -93,8 +93,8 @@ jobs:
           context: ./backoffice-bff
           push: true
           tags: |
-              ghcr.io/23120049/yas-backoffice-bff:latest
-              ghcr.io/23120049/yas-backoffice-bff:${{ github.sha }}
+            ghcr.io/23120049/yas-backoffice-bff:${{ github.sha }}
+            ${{ github.ref == 'refs/heads/main' && 'ghcr.io/23120049/yas-backoffice-bff:latest' || '' }}
   Test:
     runs-on: ubuntu-latest
     needs: Build

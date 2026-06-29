@@ -101,8 +101,8 @@ jobs:
           context: ./tax
           push: true
           tags: |
-              ghcr.io/23120049/yas-tax:latest  
-              ghcr.io/23120049/yas-tax:${{ github.sha }}
+            ghcr.io/23120049/yas-tax:${{ github.sha }}
+            ${{ github.ref == 'refs/heads/main' && 'ghcr.io/23120049/yas-tax:latest' || '' }}
   Test:
     runs-on: ubuntu-latest
     needs: Build

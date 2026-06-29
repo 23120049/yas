@@ -101,8 +101,8 @@ jobs:
           context: ./order
           push: true
           tags: |
-              ghcr.io/23120049/yas-order:latest  
-              ghcr.io/23120049/yas-order:${{ github.sha }}
+            ghcr.io/23120049/yas-order:${{ github.sha }}
+            ${{ github.ref == 'refs/heads/main' && 'ghcr.io/23120049/yas-order:latest' || '' }}
           
   Test:
     runs-on: ubuntu-latest

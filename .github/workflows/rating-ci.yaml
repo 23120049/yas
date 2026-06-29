@@ -101,8 +101,8 @@ jobs:
           context: ./rating
           push: true
           tags: |
-              ghcr.io/23120049/yas-rating:latest  
-              ghcr.io/23120049/yas-rating:${{ github.sha }}
+            ghcr.io/23120049/yas-rating:${{ github.sha }}
+            ${{ github.ref == 'refs/heads/main' && 'ghcr.io/23120049/yas-rating:latest' || '' }}
   Test:
     runs-on: ubuntu-latest
     needs: Build

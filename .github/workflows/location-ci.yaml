@@ -101,8 +101,8 @@ jobs:
           context: ./location
           push: true
           tags: |
-              ghcr.io/23120049/yas-location:latest  
-              ghcr.io/23120049/yas-location:${{ github.sha }}
+            ghcr.io/23120049/yas-location:${{ github.sha }}
+            ${{ github.ref == 'refs/heads/main' && 'ghcr.io/23120049/yas-location:latest' || '' }}
   
   Test:
     runs-on: ubuntu-latest

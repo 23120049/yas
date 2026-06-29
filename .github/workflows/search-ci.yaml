@@ -101,8 +101,8 @@ jobs:
           context: ./search
           push: true
           tags: |
-              ghcr.io/23120049/yas-search:latest
-              ghcr.io/23120049/yas-search:${{ github.sha }}
+            ghcr.io/23120049/yas-search:${{ github.sha }}
+            ${{ github.ref == 'refs/heads/main' && 'ghcr.io/23120049/yas-search:latest' || '' }}
   Test: 
     runs-on: ubuntu-latest
     needs: Build

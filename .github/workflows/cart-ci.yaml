@@ -101,8 +101,8 @@ jobs:
           context: ./cart
           push: true
           tags: | 
-              ghcr.io/23120049/yas-cart:latest  
-              ghcr.io/23120049/yas-cart:${{ github.sha }}
+            ghcr.io/23120049/yas-cart:${{ github.sha }}
+            ${{ github.ref == 'refs/heads/main' && 'ghcr.io/23120049/yas-cart:latest' || '' }}
   Test:
     runs-on: ubuntu-latest
     needs: Build

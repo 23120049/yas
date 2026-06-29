@@ -29,7 +29,7 @@ on:
           - storefront
           - backoffice
       image_tag:
-        description: 'Nhập image tag muốn deploy vào dev'
+        description: 'Nhập image tag hoặc tên branch muốn deploy vào dev'
         required: true
         type: string
 
@@ -50,14 +50,38 @@ jobs:
           token: ${{ secrets.GITOPS_TOKEN }}
           path: yas-gitops-repo
 
-      - name: Update dev image tag and save rollback state
+      - name: Resolve branch SHA if needed and update dev image tag
         env:
           GITOPS_DIR: yas-gitops-repo
           ENVIRONMENT: dev
           SERVICE: ${{ github.event.inputs.service }}
-          IMAGE_TAG: ${{ github.event.inputs.image_tag }}
+          INPUT_TAG: ${{ github.event.inputs.image_tag }}
           ROLLBACK_FILE: yas-gitops-repo/rollback_state.yaml
-        run: bash .github/scripts/update-gitops-image-tag.sh
+        run: |
+          set -euo pipefail
+          
+          # Trim whitespace
+          INPUT_TAG=$(echo "$INPUT_TAG" | xargs)
+          
+          # Check if the input is a branch name by querying the remote repo
+          echo "Checking if '$INPUT_TAG' is a branch name..."
+          SHA=$(git ls-remote https://github.com/23120049/yas.git "refs/heads/$INPUT_TAG" | cut -f1)
+          
+          if [ -n "$SHA" ]; then
+            echo "Resolved branch '$INPUT_TAG' to commit SHA: $SHA"
+            IMAGE_TAG="$SHA"
+          else
+            echo "'$INPUT_TAG' is not a branch name (or branch not found). Using it directly as the image tag."
+            IMAGE_TAG="$INPUT_TAG"
+          fi
+          
+          # Export to next steps
+          echo "RESOLVED_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+          
+          # Export variables and run update script
+          export SERVICE
+          export IMAGE_TAG
+          bash .github/scripts/update-gitops-image-tag.sh
 
       - name: Commit and push GitOps changes
         working-directory: yas-gitops-repo
@@ -65,5 +89,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add values/dev/dynamic-tags rollback_state.yaml
-          git commit -m "chore(dev): test deploy ${{ github.event.inputs.service }} with tag ${{ github.event.inputs.image_tag }}" || echo "No changes to commit"
+          git commit -m "chore(dev): test deploy ${{ github.event.inputs.service }} with tag ${{ env.RESOLVED_TAG }}" || echo "No changes to commit"
           git push origin main

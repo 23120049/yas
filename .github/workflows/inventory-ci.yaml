@@ -101,8 +101,8 @@ jobs:
           context: ./inventory
           push: true
           tags: | 
-              ghcr.io/23120049/yas-inventory:latest  
-              ghcr.io/23120049/yas-inventory:${{ github.sha }}
+            ghcr.io/23120049/yas-inventory:${{ github.sha }}
+            ${{ github.ref == 'refs/heads/main' && 'ghcr.io/23120049/yas-inventory:latest' || '' }}
   
   Test:
     runs-on: ubuntu-latest

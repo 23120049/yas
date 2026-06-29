@@ -101,8 +101,8 @@ jobs:
           context: ./webhook
           push: true
           tags: |
-              ghcr.io/23120049/yas-webhook:latest  
-              ghcr.io/23120049/yas-webhook:${{ github.sha }}
+            ghcr.io/23120049/yas-webhook:${{ github.sha }}
+            ${{ github.ref == 'refs/heads/main' && 'ghcr.io/23120049/yas-webhook:latest' || '' }}
           
   Test:
     runs-on: ubuntu-latest
