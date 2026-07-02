@@ -27,7 +27,7 @@ if [ -n "${ROLLBACK_FILE:-}" ] && [ -f "$SERVICE_FILE" ]; then
   CURRENT_TAG="$(yq eval ".${KIND}.image.tag" "$SERVICE_FILE")"
   if [ "$CURRENT_TAG" != "null" ] && [ -n "$CURRENT_TAG" ]; then
     touch "$ROLLBACK_FILE"
-    yq eval -i ".\"${SERVICE}\" = \"${CURRENT_TAG}\"" "$ROLLBACK_FILE"
+    yq eval -i ".${KIND}.\"${SERVICE}\".image.tag = \"${CURRENT_TAG}\"" "$ROLLBACK_FILE"
     echo "Backed up ${SERVICE}=${CURRENT_TAG} to ${ROLLBACK_FILE}"
   fi
 fi

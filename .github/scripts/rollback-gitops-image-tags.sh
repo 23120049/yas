@@ -11,20 +11,24 @@ if [ ! -f "$ROLLBACK_FILE" ]; then
   exit 1
 fi
 
-SERVICES="$(yq eval 'keys | .[]' "$ROLLBACK_FILE")"
-if [ -z "$SERVICES" ]; then
-  echo "Rollback file is empty."
-  exit 0
-fi
-
-for SERVICE in $SERVICES; do
-  OLD_TAG="$(yq eval ".\"${SERVICE}\"" "$ROLLBACK_FILE")"
-  if [ "$OLD_TAG" = "null" ] || [ -z "$OLD_TAG" ]; then
-    continue
+# Process backend services
+BACKEND_SERVICES=$(yq eval '.backend | select(. != null) | keys | .[]' "$ROLLBACK_FILE" 2>/dev/null || true)
+for SERVICE in $BACKEND_SERVICES; do
+  OLD_TAG=$(yq eval ".backend.\"${SERVICE}\".image.tag" "$ROLLBACK_FILE" 2>/dev/null)
+  if [ "$OLD_TAG" != "null" ] && [ -n "$OLD_TAG" ]; then
+    SERVICE="$SERVICE" IMAGE_TAG="$OLD_TAG" ENVIRONMENT="$ENVIRONMENT" GITOPS_DIR="$GITOPS_DIR" \
+      bash "$(dirname "$0")/update-gitops-image-tag.sh"
   fi
+done
 
-  SERVICE="$SERVICE" IMAGE_TAG="$OLD_TAG" ENVIRONMENT="$ENVIRONMENT" GITOPS_DIR="$GITOPS_DIR" \
-    bash "$(dirname "$0")/update-gitops-image-tag.sh"
+# Process ui services
+UI_SERVICES=$(yq eval '.ui | select(. != null) | keys | .[]' "$ROLLBACK_FILE" 2>/dev/null || true)
+for SERVICE in $UI_SERVICES; do
+  OLD_TAG=$(yq eval ".ui.\"${SERVICE}\".image.tag" "$ROLLBACK_FILE" 2>/dev/null)
+  if [ "$OLD_TAG" != "null" ] && [ -n "$OLD_TAG" ]; then
+    SERVICE="$SERVICE" IMAGE_TAG="$OLD_TAG" ENVIRONMENT="$ENVIRONMENT" GITOPS_DIR="$GITOPS_DIR" \
+      bash "$(dirname "$0")/update-gitops-image-tag.sh"
+  fi
 done
 
 echo "Rollback state applied to ${ENVIRONMENT}."
