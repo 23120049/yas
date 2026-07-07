@@ -12,8 +12,7 @@ spring:
     oauth2:
       client:
         provider:
-          keycloak:
-            issuer-uri: http://identity/realms/Yas
+          keycloak: {}
         registration:
           api-client:
             provider: keycloak
