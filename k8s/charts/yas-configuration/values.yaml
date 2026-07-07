@@ -212,8 +212,7 @@ backofficeBffExtraConfig:
       oauth2:
         client:
           provider:
-            keycloak:
-              issuer-uri: ""
+            keycloak: {}
           registration:
             api-client:
               provider: keycloak
@@ -232,8 +231,7 @@ storefrontBffExtraConfig:
       oauth2:
         client:
           provider:
-            keycloak:
-              issuer-uri: ""
+            keycloak: {}
           registration:
             api-client:
               provider: keycloak
