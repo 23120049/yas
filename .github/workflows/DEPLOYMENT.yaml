@@ -1,5 +1,13 @@
 name: Continuous Deployment (GitOps Auto-Update)
 
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: gitops-deployment-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches:
@@ -70,6 +78,13 @@ jobs:
             storefront: 'storefront/**'
             backoffice: 'backoffice/**'
 
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Install yq
         run: bash .github/scripts/install-yq.sh
 
@@ -81,6 +96,7 @@ jobs:
           path: yas-gitops-repo
 
       - name: Update dev image tags
+        timeout-minutes: 25
         env:
           GITOPS_DIR: yas-gitops-repo
           ENVIRONMENT: dev
@@ -107,6 +123,34 @@ jobs:
           BACKOFFICE_CHANGED: ${{ steps.filter.outputs.backoffice }}
         run: |
           set -euo pipefail
+
+          # Build workflows run independently from this deployment workflow.
+          # Wait until every changed service has published this exact immutable
+          # commit tag before changing the desired state in yas-gitops.
+          for SERVICE in $SERVICES; do
+            VAR_NAME="$(echo "${SERVICE}_CHANGED" | tr '[:lower:]-' '[:upper:]_')"
+            if [ "${!VAR_NAME:-false}" = "true" ]; then
+              IMAGE="ghcr.io/23120049/yas-${SERVICE}:${IMAGE_TAG}"
+              FOUND=false
+
+              for ATTEMPT in $(seq 1 60); do
+                if docker manifest inspect "$IMAGE" >/dev/null 2>&1; then
+                  echo "Image is available: $IMAGE"
+                  FOUND=true
+                  break
+                fi
+
+                echo "Waiting for $IMAGE (attempt ${ATTEMPT}/60)..."
+                sleep 20
+              done
+
+              if [ "$FOUND" != "true" ]; then
+                echo "Image was not published before timeout: $IMAGE" >&2
+                exit 1
+              fi
+            fi
+          done
+
           for SERVICE in $SERVICES; do
             VAR_NAME="$(echo "${SERVICE}_CHANGED" | tr '[:lower:]-' '[:upper:]_')"
             if [ "${!VAR_NAME:-false}" = "true" ]; then
