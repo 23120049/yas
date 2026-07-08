@@ -25,6 +25,8 @@ on:
       - 'sampledata/**'
       - 'storefront/**'
       - 'backoffice/**'
+      - "pom.xml"
+      
   release:
     types: [published]
 
