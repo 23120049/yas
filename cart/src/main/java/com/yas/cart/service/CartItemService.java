@@ -12,6 +12,8 @@ import com.yas.commonlibrary.exception.BadRequestException;
 import com.yas.commonlibrary.exception.InternalServerErrorException;
 import com.yas.commonlibrary.exception.NotFoundException;
 import com.yas.commonlibrary.utils.AuthenticationUtils;
+import io.micrometer.core.annotation.Counted;
+import io.micrometer.core.annotation.Timed;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -34,6 +36,8 @@ public class CartItemService {
     private final ProductService productService;
     private final CartItemMapper cartItemMapper;
 
+    @Timed(value = "cart.add", description = "Time taken to add an item to cart", extraTags = {"operation", "add"})
+    @Counted(value = "cart.add.count", description = "Number of items added to cart")
     @Transactional
     public CartItemGetVm addCartItem(CartItemPostVm cartItemPostVm) {
         validateProduct(cartItemPostVm.productId());
@@ -44,6 +48,8 @@ public class CartItemService {
         return cartItemMapper.toGetVm(cartItem);
     }
 
+    @Timed(value = "cart.update", description = "Time taken to update a cart item", extraTags = {"operation", "update"})
+    @Counted(value = "cart.update.count", description = "Number of cart items updated")
     @Transactional
     public CartItemGetVm updateCartItem(Long productId, CartItemPutVm cartItemPutVm) {
         validateProduct(productId);
@@ -55,12 +61,16 @@ public class CartItemService {
         return cartItemMapper.toGetVm(savedCartItem);
     }
 
+    @Timed(value = "cart.get", description = "Time taken to retrieve cart items", extraTags = {"operation", "get"})
+    @Counted(value = "cart.get.count", description = "Number of cart retrieval requests")
     public List<CartItemGetVm> getCartItems() {
         String currentUserId = AuthenticationUtils.extractUserId();
         List<CartItem> cartItems = cartItemRepository.findByCustomerIdOrderByCreatedOnDesc(currentUserId);
         return cartItemMapper.toGetVms(cartItems);
     }
 
+    @Timed(value = "cart.remove", description = "Time taken to remove/adjust cart items", extraTags = {"operation", "remove"})
+    @Counted(value = "cart.remove.count", description = "Number of cart item removal/adjustment requests")
     @Transactional
     public List<CartItemGetVm> deleteOrAdjustCartItem(List<CartItemDeleteVm> cartItemDeleteVms) {
         validateCartItemDeleteVms(cartItemDeleteVms);
@@ -88,6 +98,8 @@ public class CartItemService {
         return cartItemMapper.toGetVms(updatedCartItems);
     }
 
+    @Timed(value = "cart.delete", description = "Time taken to delete a cart item", extraTags = {"operation", "delete"})
+    @Counted(value = "cart.delete.count", description = "Number of cart item deletions")
     @Transactional
     public void deleteCartItem(Long productId) {
         String currentUserId = AuthenticationUtils.extractUserId();
