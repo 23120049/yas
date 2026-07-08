@@ -100,7 +100,8 @@ jobs:
         with:
           context: ./cart
           push: true
-          tags: | 
+          no-cache: ${{ github.event_name == 'workflow_dispatch' }}
+          tags: |
             ghcr.io/23120049/yas-cart:${{ github.sha }}
             ${{ github.ref == 'refs/heads/main' && 'ghcr.io/23120049/yas-cart:latest' || '' }}
   Test:
