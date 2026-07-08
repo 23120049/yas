@@ -44,8 +44,8 @@ jobs:
         with:
           projectBaseDir: storefront
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any abc 
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} 
       - name: Log in to the Container registry
         uses: docker/login-action@v3
         with:
