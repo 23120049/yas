@@ -1,0 +1,92 @@
+name: Dev update latest image
+
+permissions:
+  contents: read
+  packages: read
+
+on:
+  workflow_dispatch:
+
+env:
+  SERVICES: >-
+    cart media customer inventory order payment payment-paypal product promotion
+    rating recommendation search tax storefront-bff backoffice-bff webhook
+    location sampledata storefront backoffice
+
+jobs:
+  update-dev-latest-images:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout yas repository
+        uses: actions/checkout@v4
+
+      - name: Install yq
+        run: bash .github/scripts/install-yq.sh
+
+      - name: Checkout yas-gitops repository
+        uses: actions/checkout@v4
+        with:
+          repository: '23120049/yas-gitops'
+          token: ${{ secrets.GITOPS_TOKEN }}
+          path: yas-gitops-repo
+
+      - name: Update dev values to SHA tags from latest GHCR images
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITOPS_DIR: yas-gitops-repo
+          ENVIRONMENT: dev
+          PACKAGE_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+
+          resolve_latest_sha_tag() {
+            local service="$1"
+            local package="yas-${service}"
+            local api_path
+            local sha_tag
+            local tag_file
+            local error_file
+
+            tag_file="$(mktemp)"
+            error_file="$(mktemp)"
+
+            for api_path in \
+              "/users/${PACKAGE_OWNER}/packages/container/${package}/versions?per_page=100" \
+              "/orgs/${PACKAGE_OWNER}/packages/container/${package}/versions?per_page=100"; do
+              if gh api --paginate "$api_path" \
+                --jq '.[] | select(.metadata.container.tags | index("latest")) | .metadata.container.tags[] | select(test("^[0-9a-f]{40}$"))' \
+                > "$tag_file" 2> "$error_file"; then
+                sha_tag="$(head -n 1 "$tag_file" || true)"
+                if [ -n "$sha_tag" ]; then
+                  echo "$sha_tag"
+                  rm -f "$tag_file" "$error_file"
+                  return 0
+                fi
+              fi
+            done
+
+            echo "Could not resolve a commit SHA tag for ghcr.io/${PACKAGE_OWNER}/${package}:latest" >&2
+            echo "Expected the GHCR version tagged latest to also have a 40-character commit SHA tag." >&2
+            rm -f "$tag_file" "$error_file"
+            return 1
+          }
+
+          for SERVICE in $SERVICES; do
+            IMAGE_TAG="$(resolve_latest_sha_tag "$SERVICE")"
+            echo "Resolved ${SERVICE}:latest to ${IMAGE_TAG}"
+
+            SERVICE="$SERVICE" IMAGE_TAG="$IMAGE_TAG" bash .github/scripts/update-gitops-image-tag.sh
+          done
+
+      - name: Commit and push dev GitOps changes
+        working-directory: yas-gitops-repo
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          git add values/dev/dynamic-tags
+          if ! git diff --cached --exit-code; then
+            git commit -m "chore(dev): update image tags to latest GHCR SHA tags"
+            git push origin main
+          else
+            echo "No dev image tag changes to commit."
+          fi
