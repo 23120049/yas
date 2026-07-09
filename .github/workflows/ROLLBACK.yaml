@@ -2,6 +2,32 @@ name: Rollback Dev Environment
 
 on:
   workflow_dispatch:
+    inputs:
+      service:
+        description: 'Chọn service muốn rollback'
+        required: true
+        type: choice
+        options:
+          - cart
+          - media
+          - customer
+          - inventory
+          - order
+          - payment
+          - payment-paypal
+          - product
+          - promotion
+          - rating
+          - recommendation
+          - search
+          - tax
+          - storefront-bff
+          - backoffice-bff
+          - webhook
+          - location
+          - sampledata
+          - storefront
+          - backoffice
 
 jobs:
   rollback_dev:
@@ -24,6 +50,7 @@ jobs:
         env:
           GITOPS_DIR: yas-gitops-repo
           ENVIRONMENT: dev
+          SERVICE: ${{ github.event.inputs.service }}
         run: bash .github/scripts/rollback-gitops-image-tags.sh
 
       - name: Commit and push GitOps rollback
@@ -32,5 +59,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add values/dev/dynamic-tags
-          git commit -m "chore(dev): rollback image tags to previous state" || echo "No changes to commit"
+          git commit -m "chore(dev): rollback ${{ github.event.inputs.service }} image tag to previous state" || echo "No changes to commit"
           git push origin main
