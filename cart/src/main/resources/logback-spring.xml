@@ -21,7 +21,12 @@
         </encoder>
     </appender>
 
+    <!-- OpenTelemetry OTLP Exporter Appender -->
+    <appender name="OTEL" class="io.opentelemetry.instrumentation.logback.mdc.v1_0.OpenTelemetryAppender">
+    </appender>
+
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="OTEL"/>
     </root>
 </configuration>
