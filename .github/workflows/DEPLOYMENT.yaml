@@ -57,26 +57,66 @@ jobs:
         uses: dorny/paths-filter@v3
         with:
           filters: |
-            cart: 'cart/**'
-            media: 'media/**'
-            customer: 'customer/**'
-            inventory: 'inventory/**'
-            order: 'order/**'
-            payment: 'payment/**'
-            payment_paypal: 'payment-paypal/**'
-            product: 'product/**'
-            promotion: 'promotion/**'
-            rating: 'rating/**'
-            recommendation: 'recommendation/**'
-            search: 'search/**'
-            tax: 'tax/**'
-            storefront_bff: 'storefront-bff/**'
-            backoffice_bff: 'backoffice-bff/**'
-            webhook: 'webhook/**'
-            location: 'location/**'
-            sampledata: 'sampledata/**'
-            storefront: 'storefront/**'
-            backoffice: 'backoffice/**'
+            cart:
+              - 'cart/**'
+              - 'pom.xml'
+            media:
+              - 'media/**'
+              - 'pom.xml'
+            customer:
+              - 'customer/**'
+              - 'pom.xml'
+            inventory:
+              - 'inventory/**'
+              - 'pom.xml'
+            order:
+              - 'order/**'
+              - 'pom.xml'
+            payment:
+              - 'payment/**'
+              - 'pom.xml'
+            payment_paypal:
+              - 'payment-paypal/**'
+              - 'pom.xml'
+            product:
+              - 'product/**'
+              - 'pom.xml'
+            promotion:
+              - 'promotion/**'
+              - 'pom.xml'
+            rating:
+              - 'rating/**'
+              - 'pom.xml'
+            recommendation:
+              - 'recommendation/**'
+              - 'pom.xml'
+            search:
+              - 'search/**'
+              - 'pom.xml'
+            tax:
+              - 'tax/**'
+              - 'pom.xml'
+            storefront_bff:
+              - 'storefront-bff/**'
+              - 'pom.xml'
+            backoffice_bff:
+              - 'backoffice-bff/**'
+              - 'pom.xml'
+            webhook:
+              - 'webhook/**'
+              - 'pom.xml'
+            location:
+              - 'location/**'
+              - 'pom.xml'
+            sampledata:
+              - 'sampledata/**'
+              - 'pom.xml'
+            storefront:
+              - 'storefront/**'
+              - 'pom.xml'
+            backoffice:
+              - 'backoffice/**'
+              - 'pom.xml'
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
