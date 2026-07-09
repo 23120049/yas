@@ -2,7 +2,7 @@ name: Continuous Deployment (GitOps Auto-Update)
 
 permissions:
   contents: read
-  packages: read
+  packages: write
 
 concurrency:
   group: gitops-deployment-${{ github.ref }}
@@ -178,6 +178,13 @@ jobs:
       - name: Checkout yas repository
         uses: actions/checkout@v4
 
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Install yq
         run: bash .github/scripts/install-yq.sh
 
@@ -188,16 +195,45 @@ jobs:
           token: ${{ secrets.GITOPS_TOKEN }}
           path: yas-gitops-repo
 
-      - name: Update staging image tags to latest
+      - name: Tag released service image and update staging image tag
         env:
           GITOPS_DIR: yas-gitops-repo
           ENVIRONMENT: staging
-          IMAGE_TAG: latest
+          RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
         run: |
           set -euo pipefail
+
+          IMAGE_TAG="$RELEASE_TAG_NAME"
+
+          if ! [[ "$IMAGE_TAG" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; then
+            echo "Release tag is not a valid Docker image tag: $IMAGE_TAG" >&2
+            exit 1
+          fi
+
+          RELEASED_SERVICE=""
+
           for SERVICE in $SERVICES; do
-            SERVICE="$SERVICE" bash .github/scripts/update-gitops-image-tag.sh
+            if [[ "$IMAGE_TAG" == "$SERVICE" || "$IMAGE_TAG" == "$SERVICE"-* ]]; then
+              if [ -z "$RELEASED_SERVICE" ] || [ "${#SERVICE}" -gt "${#RELEASED_SERVICE}" ]; then
+                RELEASED_SERVICE="$SERVICE"
+              fi
+            fi
           done
+
+          if [ -z "$RELEASED_SERVICE" ]; then
+            echo "Could not determine service from release tag: $IMAGE_TAG" >&2
+            echo "Expected release tags like cart-1.2.3 or payment-paypal-1.2.3." >&2
+            exit 1
+          fi
+
+          IMAGE_REPOSITORY="ghcr.io/23120049/yas-${RELEASED_SERVICE}"
+          LATEST_IMAGE="${IMAGE_REPOSITORY}:latest"
+          RELEASE_IMAGE="${IMAGE_REPOSITORY}:${IMAGE_TAG}"
+
+          docker manifest inspect "$LATEST_IMAGE" >/dev/null
+          docker buildx imagetools create --tag "$RELEASE_IMAGE" "$LATEST_IMAGE"
+
+          SERVICE="$RELEASED_SERVICE" IMAGE_TAG="$IMAGE_TAG" bash .github/scripts/update-gitops-image-tag.sh
 
       - name: Commit and push staging GitOps changes
         working-directory: yas-gitops-repo
@@ -206,7 +242,7 @@ jobs:
           git config user.email "actions@github.com"
           git add values/staging/dynamic-tags
           if ! git diff --cached --exit-code; then
-            git commit -m "chore(staging): update image tags to latest for release ${{ github.event.release.tag_name }}"
+            git commit -m "chore(staging): update image tag for release ${{ github.event.release.tag_name }}"
             git push origin main
           else
             echo "No staging image tag changes to commit."
