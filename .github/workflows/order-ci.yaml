@@ -1,4 +1,4 @@
-name: order service ci
+name: order service ci test
 
 on:
   push:
